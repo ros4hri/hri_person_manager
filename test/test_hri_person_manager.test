@@ -1,0 +1,8 @@
+<launch>
+
+  <arg name="test_args" default=""/>
+
+  <test test-name="test_hri" pkg="hri" time-limit="2.0" type="test_hri" args="$(arg test_args)"/>
+
+</launch>
+
