@@ -7,6 +7,7 @@ set (CMAKE_CXX_STANDARD 11)
 
 find_package(catkin REQUIRED COMPONENTS
   hri
+  hri_msgs
   roscpp
 )
 
@@ -22,12 +23,14 @@ include_directories(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES hri_person_manager
-  CATKIN_DEPENDS hri roscpp
+  CATKIN_DEPENDS hri hri_msgs roscpp
 )
 
 
 
-add_executable(${PROJECT_NAME}_node src/hri_person_manager.cpp)
+add_executable(${PROJECT_NAME}_node 
+    src/hri_person_manager.cpp
+    src/person_matcher.cpp)
 
 ## Rename C++ executable without prefix
 set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")

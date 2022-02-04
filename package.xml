@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
   <name>hri_person_manager</name>
   <version>0.0.1</version>
   <description>Combines information about people's face, body, voice into on consistent representation, following the ROS4HRI conventions</description>
@@ -20,12 +20,9 @@
 
 
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>hri</build_depend>
-  <build_depend>roscpp</build_depend>
-  <build_export_depend>hri</build_export_depend>
-  <build_export_depend>roscpp</build_export_depend>
-  <exec_depend>hri</exec_depend>
-  <exec_depend>roscpp</exec_depend>
+  <depend>hri</depend>
+  <depend>hri_msgs</depend>
+  <depend>roscpp</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
