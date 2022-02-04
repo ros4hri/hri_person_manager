@@ -26,18 +26,84 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include <std_msgs/String.h>
 
 #include "person_matcher.h"
 
+
+#include <boost/graph/graph_traits.hpp>
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/dijkstra_shortest_paths.hpp>
+
+#include <std_msgs/String.h>
+
+using namespace std;
 using namespace ros;
 using namespace hri;
+using namespace boost;
+
+typedef boost::property<boost::vertex_name_t, string> VertexNameProperty;
+typedef boost::property<boost::edge_weight_t, double> EdgeWeightProperty;
+typedef boost::adjacency_list<boost::listS, boost::vecS, boost::undirectedS, VertexNameProperty, EdgeWeightProperty> Graph;
+typedef boost::graph_traits<Graph>::edge_iterator edge_iterator;
+
 
 
 PersonMatcher::PersonMatcher(ros::NodeHandle* nh) : nh_(nh)
 {
   person_pub["test"] = nh_->advertise<std_msgs::String>("/humans/persons/test/face_id", 1, true);
+
+
+
+  Graph g;
+  // g[0] = { "p1" };
+  // g[1] = { "f1" };
+  // g[2] = { "b1" };
+  // g[3] = { "b2" };
+
+
+  add_edge(0, 1, 9, g);
+  add_edge(0, 2, 7, g);
+  add_edge(0, 3, 6, g);
+  add_edge(2, 1, 9, g);
+  add_edge(2, 3, 1, g);
+  add_edge(4, 3, 5, g);
+
+  boost::property_map<Graph, vertex_index_t>::type vertex_ids = get(vertex_index, g);
+  boost::property_map<Graph, vertex_name_t>::type vertex_names = get(vertex_name, g);
+  boost::property_map<Graph, edge_weight_t>::type edge_probs = get(edge_weight, g);
+
+  cout << "vertices(g) = ";
+
+  for (auto vp : make_iterator_range(vertices(g)))
+  {
+    // cout << vertex_names[vp] << " ";
+    cout << vp << " ";
+  }
+  cout << endl;
+
+  cout << "edges(g) = ";
+
+  for (auto ei : make_iterator_range(edges(g)))
+  {
+    cout << "(" << vertex_ids[source(ei, g)] << "," << vertex_ids[target(ei, g)]
+         << ") => " << edge_probs[ei] << endl;
+  }
+  cout << endl;
+
+
+  // vector for storing distance property
+  vector<int> d(num_vertices(g));
+
+  dijkstra_shortest_paths(g, *(vertices(g).first), distance_map(&d[0]));
+
+  cout << "distances from start vertex:" << endl;
+  for (auto vp : make_iterator_range(vertices(g)))
+  {
+    cout << "distance(" << vp << ") = " << d[vp] << endl;
+  }
+  cout << endl;
 }
+
 
 
 void PersonMatcher::onCandidateMatch(hri_msgs::IdsMatchConstPtr matches)

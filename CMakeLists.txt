@@ -11,9 +11,13 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
 )
 
+find_package(Boost REQUIRED) # for Boost graph library
+
+
 include_directories(
     SYSTEM
     ${catkin_INCLUDE_DIRS}
+    ${Boost_INCLUDE_DIRS}
 )
 
 include_directories(
