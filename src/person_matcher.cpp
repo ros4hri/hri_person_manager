@@ -65,8 +65,8 @@ void PersonMatcher::update(Relations relations)
     cout << "==== " << id1 << " <-> " << id2 << " ====" << endl;
     cout << "p=" << p << " -> w=" << weight << endl;
 
-    auto map1 = id_vertex_map[type1];
-    auto map2 = id_vertex_map[type2];
+    auto& map1 = id_vertex_map[type1];
+    auto& map2 = id_vertex_map[type2];
 
     Vertex v1, v2;
 
@@ -100,7 +100,24 @@ void PersonMatcher::update(Relations relations)
       boost::put(boost::edge_weight_t(), g, edge, weight);
     }
   }
+}
 
+void PersonMatcher::erase(ID id)
+{
+  for (auto type : { person, face, body, voice })
+  {
+    if (id_vertex_map[type].find(id) != id_vertex_map[type].end())
+    {
+      clear_vertex(id_vertex_map[type][id], g);
+      remove_vertex(id_vertex_map[type][id], g);
+      id_vertex_map[type].erase(id);
+      return;
+    }
+  }
+}
+
+map<FeatureType, ID> PersonMatcher::get_association(ID id)
+{
   boost::property_map<Graph, vertex_index_t>::type vertex_ids = get(vertex_index, g);
   boost::property_map<Graph, edge_weight_t>::type edge_probs = get(edge_weight, g);
 
@@ -121,15 +138,8 @@ void PersonMatcher::update(Relations relations)
          << ") => " << edge_probs[ei] << endl;
   }
   cout << endl;
-}
 
-void PersonMatcher::erase(ID id)
-{
-}
-
-map<FeatureType, ID> PersonMatcher::get_association(ID id)
-{
-  auto vertex = id_vertex_map[person][id];
+  auto vertex = id_vertex_map[person].at(id);
 
   // vector for storing distance property
   vector<float> d(num_vertices(g));
@@ -144,11 +154,9 @@ map<FeatureType, ID> PersonMatcher::get_association(ID id)
     { voice, { "", numeric_limits<float>::max() } }
   };
 
-
-  cout << "distances from start vertex:" << endl;
   for (auto vp : make_iterator_range(vertices(g)))
   {
-    for (type : face, body, voice)
+    for (auto type : { face, body, voice })
     {
       for (const auto& kv : id_vertex_map[type])
       {
@@ -156,19 +164,16 @@ map<FeatureType, ID> PersonMatcher::get_association(ID id)
         {
           if (d[vp] < best_candidates[type].second)
           {
-            best_candidates[type] = { kv.first, kv.second };
+            cout << "best candidate: " << kv.first << " " << d[vp] << endl;
+            best_candidates[type] = { kv.first, d[vp] };
+            goto next_vertex;
           }
           else
-          {
-            continue;
-          }
-        }
-        else
-        {
-          continue;
+            goto next_vertex;
         }
       }
     }
+  next_vertex:;
   }
 
   if (best_candidates[face].second < threshold)

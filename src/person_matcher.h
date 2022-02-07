@@ -38,7 +38,8 @@
 #include <boost/pending/property.hpp>
 
 typedef boost::property<boost::edge_weight_t, float> EdgeWeightProperty;
-typedef boost::adjacency_list<boost::listS, boost::vecS, boost::undirectedS, boost::no_property, EdgeWeightProperty> Graph;
+// use boost::setS to forbid parallel edges
+typedef boost::adjacency_list<boost::setS, boost::vecS, boost::undirectedS, boost::no_property, EdgeWeightProperty> Graph;
 typedef boost::graph_traits<Graph>::vertex_descriptor Vertex;
 typedef boost::graph_traits<Graph>::edge_descriptor Edge;
 
