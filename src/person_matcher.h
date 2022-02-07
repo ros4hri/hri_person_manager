@@ -29,22 +29,31 @@
 #ifndef HRI_PERSON_MATCHER_H
 #define HRI_PERSON_MATCHER_H
 
-#include <ros/ros.h>
-#include <hri/hri.h>
+#include <map>
+#include <vector>
+#include <tuple>
 #include <hri/base.h>
-#include <hri_msgs/IdsMatch.h>
 
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/pending/property.hpp>
+
+typedef boost::property<boost::edge_weight_t, float> EdgeWeightProperty;
+typedef boost::adjacency_list<boost::listS, boost::vecS, boost::undirectedS, boost::no_property, EdgeWeightProperty> Graph;
+
+typedef std::vector<std::tuple<hri::ID, hri::FeatureType, hri::ID, hri::FeatureType, float>> Relations;
 
 class PersonMatcher
 {
 public:
-  PersonMatcher(ros::NodeHandle* nh);
+  PersonMatcher();
 
-  void onCandidateMatch(hri_msgs::IdsMatchConstPtr matches);
+  void update(Relations relations);
+  std::map<hri::FeatureType, hri::ID> get_association(hri::ID);
 
 private:
-  ros::NodeHandle* nh_;
-  std::map<hri::ID, ros::Publisher> person_pub;
+  std::map<hri::ID, int> id_vertex_map;
+
+  Graph g;
 };
 
 #endif  // HRI_PERSON_MATCHER_H

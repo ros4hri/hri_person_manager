@@ -2,7 +2,7 @@
 
   <arg name="test_args" default=""/>
 
-  <test test-name="test_hri" pkg="hri" time-limit="2.0" type="test_hri" args="$(arg test_args)"/>
+  <test test-name="test_hri_person_manager" pkg="hri_person_manager" time-limit="2.0" type="test_hri_person_manager" args="$(arg test_args)"/>
 
 </launch>
 

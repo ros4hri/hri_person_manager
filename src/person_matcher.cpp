@@ -31,36 +31,23 @@
 
 
 #include <boost/graph/graph_traits.hpp>
-#include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/dijkstra_shortest_paths.hpp>
+#include "hri/base.h"
 
-#include <std_msgs/String.h>
 
 using namespace std;
-using namespace ros;
 using namespace hri;
 using namespace boost;
 
-typedef boost::property<boost::vertex_name_t, string> VertexNameProperty;
-typedef boost::property<boost::edge_weight_t, double> EdgeWeightProperty;
-typedef boost::adjacency_list<boost::listS, boost::vecS, boost::undirectedS, VertexNameProperty, EdgeWeightProperty> Graph;
-typedef boost::graph_traits<Graph>::edge_iterator edge_iterator;
 
 
-
-PersonMatcher::PersonMatcher(ros::NodeHandle* nh) : nh_(nh)
+PersonMatcher::PersonMatcher()
 {
-  person_pub["test"] = nh_->advertise<std_msgs::String>("/humans/persons/test/face_id", 1, true);
+}
 
 
-
-  Graph g;
-  // g[0] = { "p1" };
-  // g[1] = { "f1" };
-  // g[2] = { "b1" };
-  // g[3] = { "b2" };
-
-
+void PersonMatcher::update(Relations relations)
+{
   add_edge(0, 1, 9, g);
   add_edge(0, 2, 7, g);
   add_edge(0, 3, 6, g);
@@ -69,7 +56,6 @@ PersonMatcher::PersonMatcher(ros::NodeHandle* nh) : nh_(nh)
   add_edge(4, 3, 5, g);
 
   boost::property_map<Graph, vertex_index_t>::type vertex_ids = get(vertex_index, g);
-  boost::property_map<Graph, vertex_name_t>::type vertex_names = get(vertex_name, g);
   boost::property_map<Graph, edge_weight_t>::type edge_probs = get(edge_weight, g);
 
   cout << "vertices(g) = ";
@@ -104,9 +90,7 @@ PersonMatcher::PersonMatcher(ros::NodeHandle* nh) : nh_(nh)
   cout << endl;
 }
 
-
-
-void PersonMatcher::onCandidateMatch(hri_msgs::IdsMatchConstPtr matches)
+map<FeatureType, ID> PersonMatcher::get_association(ID)
 {
+  return {};
 }
-
