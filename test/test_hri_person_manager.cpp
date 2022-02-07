@@ -32,14 +32,17 @@
 
 #include <ros/ros.h>
 
+#include "hri/hri.h"
 #include "hri/base.h"
+#include "hri_msgs/IdsMatch.h"
 #include "person_matcher.h"
 
 using namespace hri;
 using namespace std;
+using namespace ros;
 
 // waiting time for the libhri callback to process their inputs
-#define WAIT std::this_thread::sleep_for(std::chrono::milliseconds(5))
+#define WAIT std::this_thread::sleep_for(std::chrono::milliseconds(100))
 
 TEST(hri_person_matcher, BasicAssociationModel)
 {
@@ -168,13 +171,41 @@ TEST(hri_person_matcher, RemoveAddIds)
   EXPECT_EQ(association, (map<FeatureType, ID>{ { hri::face, "f1" }, { hri::body, "b1" } }));
 }
 
+TEST(hri_person_manager, ROSNode)
+{
+  NodeHandle nh;
+
+  ros::AsyncSpinner spinner(1);
+  spinner.start();
+
+  HRIListener hri_listener;
+
+  Publisher pub = nh.advertise<hri_msgs::IdsMatch>("/humans/candidate_matches", 1);
+
+  ASSERT_EQ(hri_listener.getPersons().size(), 0);
+
+
+  hri_msgs::IdsMatch match;
+  match.face_id = "f1";
+  match.person_id = "p1";
+  match.confidence = 0.7;
+
+  pub.publish(match);
+
+  WAIT;
+
+  ASSERT_EQ(hri_listener.getPersons().size(), 1);
+
+  spinner.stop();
+}
+
 int main(int argc, char **argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::Time::init();  // needed for ros::Time::now()
-  ros::init(argc, argv, "test_hri_person_matcher");
+  ros::init(argc, argv, "test_hri_person_manager");
   ros::NodeHandle nh;
-  ROS_INFO("Starting HRI person matcher tests");
+  ROS_INFO("Starting HRI person manager tests");
   return RUN_ALL_TESTS();
 }
 
