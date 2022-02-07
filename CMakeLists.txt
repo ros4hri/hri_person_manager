@@ -20,12 +20,7 @@ include_directories(
     ${Boost_INCLUDE_DIRS}
 )
 
-include_directories(
-    include
-)
-
 catkin_package(
-  INCLUDE_DIRS include
   LIBRARIES hri_person_manager
   CATKIN_DEPENDS hri hri_msgs roscpp
 )
