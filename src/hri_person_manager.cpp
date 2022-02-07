@@ -88,11 +88,11 @@ void onCandidateMatch(hri_msgs::IdsMatchConstPtr match)
 
 void initialize_person_publishers(NodeHandle& nh, ID id)
 {
-  persons_pub[id] = {
-    nh.advertise<std_msgs::String>(string("/humans/persons/") + id + "/face_id", 1, true),
-    nh.advertise<std_msgs::String>(string("/humans/persons/") + id + "/body_id", 1, true),
-    nh.advertise<std_msgs::String>(string("/humans/persons/") + id + "/voice_id", 1, true),
-  };
+  persons_pub[id] = { {
+      nh.advertise<std_msgs::String>(string("/humans/persons/") + id + "/face_id", 1, true),
+      nh.advertise<std_msgs::String>(string("/humans/persons/") + id + "/body_id", 1, true),
+      nh.advertise<std_msgs::String>(string("/humans/persons/") + id + "/voice_id", 1, true),
+  } };
 
   // publish an updated list of tracked persons
   hri_msgs::IdsList persons_list;
