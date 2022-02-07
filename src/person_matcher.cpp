@@ -26,10 +26,14 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+#include <cmath>
+#include <limits>
+#include <tuple>
 
 #include "person_matcher.h"
 
 
+#include <boost/graph/detail/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/dijkstra_shortest_paths.hpp>
 #include "hri/base.h"
@@ -40,20 +44,62 @@ using namespace hri;
 using namespace boost;
 
 
-
-PersonMatcher::PersonMatcher()
+PersonMatcher::PersonMatcher(double likelihood_threshold)
 {
+  threshold = log(1 / likelihood_threshold);
 }
 
 
 void PersonMatcher::update(Relations relations)
 {
-  add_edge(0, 1, 9, g);
-  add_edge(0, 2, 7, g);
-  add_edge(0, 3, 6, g);
-  add_edge(2, 1, 9, g);
-  add_edge(2, 3, 1, g);
-  add_edge(4, 3, 5, g);
+  ID id1, id2;
+  FeatureType type1, type2;
+  float p;
+
+  for (auto rel : relations)
+  {
+    std::tie(id1, type1, id2, type2, p) = rel;
+
+    float weight = log(1. / p);
+
+    cout << "==== " << id1 << " <-> " << id2 << " ====" << endl;
+    cout << "p=" << p << " -> w=" << weight << endl;
+
+    auto map1 = id_vertex_map[type1];
+    auto map2 = id_vertex_map[type2];
+
+    Vertex v1, v2;
+
+    if (map1.find(id1) == map1.end())
+    {
+      v1 = add_vertex(g);
+      map1[id1] = v1;
+    }
+    else
+    {
+      v1 = map1[id1];
+    }
+
+    if (map2.find(id2) == map2.end())
+    {
+      v2 = add_vertex(g);
+      map2[id2] = v2;
+    }
+    else
+    {
+      v2 = map2[id2];
+    }
+
+    Edge edge;
+    bool ok;
+
+    std::tie(edge, ok) = add_edge(v1, v2, weight, g);
+
+    if (!ok)
+    {
+      boost::put(boost::edge_weight_t(), g, edge, weight);
+    }
+  }
 
   boost::property_map<Graph, vertex_index_t>::type vertex_ids = get(vertex_index, g);
   boost::property_map<Graph, edge_weight_t>::type edge_probs = get(edge_weight, g);
@@ -75,22 +121,68 @@ void PersonMatcher::update(Relations relations)
          << ") => " << edge_probs[ei] << endl;
   }
   cout << endl;
+}
 
+void PersonMatcher::erase(ID id)
+{
+}
+
+map<FeatureType, ID> PersonMatcher::get_association(ID id)
+{
+  auto vertex = id_vertex_map[person][id];
 
   // vector for storing distance property
-  vector<int> d(num_vertices(g));
+  vector<float> d(num_vertices(g));
 
-  dijkstra_shortest_paths(g, *(vertices(g).first), distance_map(&d[0]));
+  dijkstra_shortest_paths(g, vertex, distance_map(&d[0]));
+
+  map<FeatureType, ID> res;
+
+  map<FeatureType, std::pair<ID, float>> best_candidates{
+    { face, { "", numeric_limits<float>::max() } },
+    { body, { "", numeric_limits<float>::max() } },
+    { voice, { "", numeric_limits<float>::max() } }
+  };
+
 
   cout << "distances from start vertex:" << endl;
   for (auto vp : make_iterator_range(vertices(g)))
   {
-    cout << "distance(" << vp << ") = " << d[vp] << endl;
+    for (type : face, body, voice)
+    {
+      for (const auto& kv : id_vertex_map[type])
+      {
+        if (kv.second == vp)
+        {
+          if (d[vp] < best_candidates[type].second)
+          {
+            best_candidates[type] = { kv.first, kv.second };
+          }
+          else
+          {
+            continue;
+          }
+        }
+        else
+        {
+          continue;
+        }
+      }
+    }
   }
-  cout << endl;
-}
 
-map<FeatureType, ID> PersonMatcher::get_association(ID)
-{
-  return {};
+  if (best_candidates[face].second < threshold)
+  {
+    res[face] = best_candidates[face].first;
+  }
+  if (best_candidates[body].second < threshold)
+  {
+    res[body] = best_candidates[body].first;
+  }
+  if (best_candidates[voice].second < threshold)
+  {
+    res[voice] = best_candidates[voice].first;
+  }
+
+  return res;
 }
