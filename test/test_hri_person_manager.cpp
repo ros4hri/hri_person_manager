@@ -41,21 +41,111 @@ using namespace std;
 // waiting time for the libhri callback to process their inputs
 #define WAIT std::this_thread::sleep_for(std::chrono::milliseconds(5))
 
-
-TEST(hri_person_matcher, AssociationModel)
+TEST(hri_person_matcher, BasicAssociationModel)
 {
-  auto model = PersonMatcher();
+  auto model = PersonMatcher(0.4);
+
+  Relations data = { { "p1", person, "f1", face, 1.0 } };
+  model.update(data);
+  auto association = model.get_association("p1");
+  EXPECT_EQ(association, (map<FeatureType, ID>{ { hri::face, "f1" } }));
+  EXPECT_TRUE(association.find(hri::voice) == association.end());
+  EXPECT_TRUE(association.find(hri::body) == association.end());
+
+  model.update({ { "p1", person, "f1", face, 0.9 } });
+  association = model.get_association("p1");
+  EXPECT_EQ(association, (map<FeatureType, ID>{ { hri::face, "f1" } }));
+  EXPECT_TRUE(association.find(hri::voice) == association.end());
+  EXPECT_TRUE(association.find(hri::body) == association.end());
+
+  model.update({ { "p1", person, "f1", face, 0.4 } });
+  association = model.get_association("p1");
+  EXPECT_EQ(association, (map<FeatureType, ID>{ { hri::face, "f1" } }));
+  EXPECT_TRUE(association.find(hri::voice) == association.end());
+  EXPECT_TRUE(association.find(hri::body) == association.end());
+
+  model.update({ { "p1", person, "f1", face, 0.35 } });
+  association = model.get_association("p1");
+  EXPECT_TRUE(association.empty());
+
+  model.update({ { "p1", person, "f1", face, 0.1 } });
+  association = model.get_association("p1");
+  EXPECT_TRUE(association.empty());
+
+  model.update({ { "p1", person, "f1", face, 0.0 } });
+  association = model.get_association("p1");
+  EXPECT_TRUE(association.empty());
+
+  model.update({ { "p1", person, "f1", face, 0.9 } });
+  association = model.get_association("p1");
+  EXPECT_EQ(association, (map<FeatureType, ID>{ { hri::face, "f1" } }));
+  EXPECT_TRUE(association.find(hri::voice) == association.end());
+  EXPECT_TRUE(association.find(hri::body) == association.end());
+
+
+  model = PersonMatcher(0.05);
+
+  model.update({ { "p1", person, "f1", face, 0.1 } });
+  association = model.get_association("p1");
+  EXPECT_EQ(association, (map<FeatureType, ID>{ { hri::face, "f1" } }));
+  EXPECT_TRUE(association.find(hri::voice) == association.end());
+  EXPECT_TRUE(association.find(hri::body) == association.end());
+
+  model.update({ { "p1", person, "f1", face, 0.01 } });
+  association = model.get_association("p1");
+  EXPECT_TRUE(association.empty());
+
+  model.update({ { "p1", person, "f1", face, 0.0 } });
+  association = model.get_association("p1");
+  EXPECT_TRUE(association.empty());
+}
+
+
+TEST(hri_person_matcher, AssociationNetwork)
+{
+  auto model = PersonMatcher(0.4);
+
+
+  // Test small transitive network, with p1 -> {f1, b1} more likely than p1 -> {f1, b2}
+  Relations data = { { "f1", face, "b1", body, 0.7 },
+                     { "f1", face, "b2", body, 0.4 },
+                     { "p1", person, "f1", face, 0.9 } };
+  model.update(data);
+  auto association = model.get_association("p1");
+  EXPECT_EQ(association, (map<FeatureType, ID>{ { hri::face, "f1" }, { hri::body, "b1" } }));
+  EXPECT_TRUE(association.find(hri::voice) == association.end());
+
+  // Test *updating* an edge. The previous value should be removed
+  data = { { "f1", face, "b1", body, 0.0 },
+           { "f1", face, "b2", body, 0.4 },
+           { "p1", person, "f1", face, 0.9 } };
+  model.update(data);
+  association = model.get_association("p1");
+  EXPECT_EQ(association, (map<FeatureType, ID>{ { hri::face, "f1" }, { hri::body, "b2" } }));
+  EXPECT_TRUE(association.find(hri::voice) == association.end());
+}
+
+TEST(hri_person_matcher, RemoveAddIds)
+{
+  auto model = PersonMatcher(0.4);
+
 
   Relations data = { { "f1", face, "b1", body, 0.7 },
-                     { "f1", face, "b2", body, 0.1 },
+                     { "f1", face, "b2", body, 0.4 },
                      { "p1", person, "f1", face, 0.9 } };
-
   model.update(data);
-
   auto association = model.get_association("p1");
-
   EXPECT_EQ(association, (map<FeatureType, ID>{ { hri::face, "f1" }, { hri::body, "b1" } }));
+  EXPECT_TRUE(association.find(hri::voice) == association.end());
 
+  model.erase("b1");
+  association = model.get_association("p1");
+  EXPECT_EQ(association, (map<FeatureType, ID>{ { hri::face, "f1" }, { hri::body, "b2" } }));
+  EXPECT_TRUE(association.find(hri::voice) == association.end());
+
+  model.update({ "f1", face, "b1", body, 0.7 });
+  association = model.get_association("p1");
+  EXPECT_EQ(association, (map<FeatureType, ID>{ { hri::face, "f1" }, { hri::body, "b1" } }));
   EXPECT_TRUE(association.find(hri::voice) == association.end());
 }
 
