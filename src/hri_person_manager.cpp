@@ -27,8 +27,6 @@ bool dirty;
 
 void onCandidateMatch(hri_msgs::IdsMatchConstPtr match)
 {
-  ROS_WARN("got candidate matches");
-
   FeatureType type1, type2;
   ID id1, id2;
 
@@ -97,13 +95,10 @@ void initialize_person_publishers(NodeHandle& nh, ID id)
   // publish an updated list of tracked persons
   hri_msgs::IdsList persons_list;
 
-  cout << "publishing tracked persons";
   for (auto const& kv : persons_pub)
   {
     persons_list.ids.push_back(kv.first);
-    cout << kv.first << ", ";
   }
-  cout << endl << "done publishing" << endl;
   tracked_persons_pub.publish(persons_list);
 }
 
@@ -177,14 +172,12 @@ int main(int argc, char** argv)
 
   HRIListener hri_listener;
 
-  ROS_WARN("bloup");
-
   tracked_persons_pub = nh.advertise<hri_msgs::IdsList>("/humans/persons/tracked", 1, true);
 
   dirty = true;
 
-  ros::Subscriber candidates = nh.subscribe<hri_msgs::IdsMatch>(
-      "/humans/candidate_matches", 1, bind(&onCandidateMatch, _1));
+  ros::Subscriber candidates =
+      nh.subscribe<hri_msgs::IdsMatch>("/humans/candidate_matches", 1, onCandidateMatch);
 
 
   while (ros::ok())

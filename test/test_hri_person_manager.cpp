@@ -42,7 +42,7 @@ using namespace std;
 using namespace ros;
 
 // waiting time for the libhri callback to process their inputs
-#define WAIT std::this_thread::sleep_for(std::chrono::milliseconds(100))
+#define WAIT(X) std::this_thread::sleep_for(std::chrono::milliseconds(X))
 
 TEST(hri_person_matcher, BasicAssociationModel)
 {
@@ -182,6 +182,12 @@ TEST(hri_person_manager, ROSNode)
 
   Publisher pub = nh.advertise<hri_msgs::IdsMatch>("/humans/candidate_matches", 1);
 
+  // wait for the hri_person_manager node to be up
+  WAIT(500);
+
+  ASSERT_EQ(pub.getNumSubscribers(), 1)
+      << "hri_person_manager should be the one and only node subscribed to this topic";
+
   ASSERT_EQ(hri_listener.getPersons().size(), 0);
 
 
@@ -192,9 +198,15 @@ TEST(hri_person_manager, ROSNode)
 
   pub.publish(match);
 
-  WAIT;
+  WAIT(100);
 
   ASSERT_EQ(hri_listener.getPersons().size(), 1);
+
+  auto persons = hri_listener.getPersons();
+  ASSERT_TRUE(persons.find("p1") != persons.end());
+  ASSERT_EQ(persons["p1"]->face().lock()->id(), "f1");
+  ASSERT_EQ(persons["p1"]->body().lock(), nullptr);
+  ASSERT_EQ(persons["p1"]->voice().lock(), nullptr);
 
   spinner.stop();
 }
