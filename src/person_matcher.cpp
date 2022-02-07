@@ -44,12 +44,20 @@ using namespace hri;
 using namespace boost;
 
 
-PersonMatcher::PersonMatcher(double likelihood_threshold)
+PersonMatcher::PersonMatcher(float likelihood_threshold)
+{
+  threshold = log(1 / likelihood_threshold);
+
+  id_vertex_map[person] = {};
+  id_vertex_map[face] = {};
+  id_vertex_map[body] = {};
+  id_vertex_map[voice] = {};
+}
+
+void PersonMatcher::set_threshold(float likelihood_threshold)
 {
   threshold = log(1 / likelihood_threshold);
 }
-
-
 void PersonMatcher::update(Relations relations)
 {
   ID id1, id2;
@@ -62,8 +70,8 @@ void PersonMatcher::update(Relations relations)
 
     float weight = log(1. / p);
 
-    cout << "==== " << id1 << " <-> " << id2 << " ====" << endl;
-    cout << "p=" << p << " -> w=" << weight << endl;
+    // cout << "==== " << id1 << " <-> " << id2 << " ====" << endl;
+    // cout << "p=" << p << " -> w=" << weight << endl;
 
     auto& map1 = id_vertex_map[type1];
     auto& map2 = id_vertex_map[type2];
@@ -116,30 +124,30 @@ void PersonMatcher::erase(ID id)
   }
 }
 
-map<FeatureType, ID> PersonMatcher::get_association(ID id)
+map<FeatureType, ID> PersonMatcher::get_association(ID id) const
 {
-  boost::property_map<Graph, vertex_index_t>::type vertex_ids = get(vertex_index, g);
-  boost::property_map<Graph, edge_weight_t>::type edge_probs = get(edge_weight, g);
+  //  boost::property_map<Graph, vertex_index_t>::type vertex_ids = get(vertex_index, g);
+  //  boost::property_map<Graph, edge_weight_t>::type edge_probs = get(edge_weight, g);
+  //
+  //  cout << "vertices(g) = ";
+  //
+  //  for (auto vp : make_iterator_range(vertices(g)))
+  //  {
+  //    // cout << vertex_names[vp] << " ";
+  //    cout << vp << " ";
+  //  }
+  //  cout << endl;
+  //
+  //  cout << "edges(g) = ";
+  //
+  //  for (auto ei : make_iterator_range(edges(g)))
+  //  {
+  //    cout << "(" << vertex_ids[source(ei, g)] << "," << vertex_ids[target(ei, g)]
+  //         << ") => " << edge_probs[ei] << endl;
+  //  }
+  //  cout << endl;
 
-  cout << "vertices(g) = ";
-
-  for (auto vp : make_iterator_range(vertices(g)))
-  {
-    // cout << vertex_names[vp] << " ";
-    cout << vp << " ";
-  }
-  cout << endl;
-
-  cout << "edges(g) = ";
-
-  for (auto ei : make_iterator_range(edges(g)))
-  {
-    cout << "(" << vertex_ids[source(ei, g)] << "," << vertex_ids[target(ei, g)]
-         << ") => " << edge_probs[ei] << endl;
-  }
-  cout << endl;
-
-  auto vertex = id_vertex_map[person].at(id);
+  auto vertex = id_vertex_map.at(person).at(id);
 
   // vector for storing distance property
   vector<float> d(num_vertices(g));
@@ -158,13 +166,13 @@ map<FeatureType, ID> PersonMatcher::get_association(ID id)
   {
     for (auto type : { face, body, voice })
     {
-      for (const auto& kv : id_vertex_map[type])
+      for (const auto& kv : id_vertex_map.at(type))
       {
         if (kv.second == vp)
         {
           if (d[vp] < best_candidates[type].second)
           {
-            cout << "best candidate: " << kv.first << " " << d[vp] << endl;
+            // cout << "best candidate: " << kv.first << " " << d[vp] << endl;
             best_candidates[type] = { kv.first, d[vp] };
             goto next_vertex;
           }
@@ -187,6 +195,19 @@ map<FeatureType, ID> PersonMatcher::get_association(ID id)
   if (best_candidates[voice].second < threshold)
   {
     res[voice] = best_candidates[voice].first;
+  }
+
+  return res;
+}
+
+
+map<ID, map<FeatureType, ID>> PersonMatcher::get_all_associations() const
+{
+  map<ID, map<FeatureType, ID>> res;
+
+  for (const auto& kv : id_vertex_map.at(person))
+  {
+    res[kv.first] = get_association(kv.first);
   }
 
   return res;

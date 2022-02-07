@@ -48,11 +48,41 @@ typedef std::vector<std::tuple<hri::ID, hri::FeatureType, hri::ID, hri::FeatureT
 class PersonMatcher
 {
 public:
-  PersonMatcher(double likelihood_threshold = 0.5);
+  PersonMatcher(float likelihood_threshold = 0.5);
 
+  /** sets the likelihood threshold to consider a feature (body, face, voice)
+   * to belong to a person.
+   */
+  void set_threshold(float likelihood_threshold);
+
+  /** updates the probabilistic relations between one or several features.
+   *
+   * For instance:
+   *
+   * ```cpp
+   * PersonMatcher model;
+   *
+   * model.update({ { "f1", face, "b1", body, 0.7 },
+   *                { "f1", face, "b2", body, 0.6 },
+   *                { "p1", person, "f1", face, 0.9 } });
+   * ```
+   */
   void update(Relations relations);
+
+  /** deletes a given ID (be it a person, a face, a body or a voice) from
+   * the probabilistic graph.
+   */
   void erase(hri::ID id);
-  std::map<hri::FeatureType, hri::ID> get_association(hri::ID);
+
+  /** returns the most likely association of a person to
+   * its face/body/voice.
+   */
+  std::map<hri::FeatureType, hri::ID> get_association(hri::ID) const;
+
+  /** returns a map with all the currently known persons, with their
+   * most likely associations to faces/bodies/voices.
+   */
+  std::map<hri::ID, std::map<hri::FeatureType, hri::ID>> get_all_associations() const;
 
 private:
   // store the mapping ID <-> vertex in the graph, sorted by feature type
