@@ -4,7 +4,9 @@
 
   <node pkg="hri_person_manager" type="node" name="hri_person_manager" />
 
-  <test test-name="test_hri_person_manager" pkg="hri_person_manager" time-limit="5.0" type="test_hri_person_manager" args="$(arg test_args)"/>
+ 
+ <test test-name="test_hri_person_manager" pkg="hri_person_manager"
+  time-limit="1000.0" type="test_hri_person_manager" args="$(arg test_args)" />
 
 </launch>
 

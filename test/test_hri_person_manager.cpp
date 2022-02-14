@@ -204,9 +204,53 @@ TEST(hri_person_manager, ROSNode)
 
   auto persons = hri_listener.getPersons();
   ASSERT_TRUE(persons.find("p1") != persons.end());
-  ASSERT_EQ(persons["p1"]->face().lock()->id(), "f1");
+
+  ASSERT_EQ(persons["p1"]->face().lock(), nullptr)
+      << "the face has not yet been published -> can not be associated to the person yet.";
+
   ASSERT_EQ(persons["p1"]->body().lock(), nullptr);
   ASSERT_EQ(persons["p1"]->voice().lock(), nullptr);
+
+
+  // publish the face
+  auto face_pub = nh.advertise<hri_msgs::IdsList>("/humans/faces/tracked", 1);
+  auto ids = hri_msgs::IdsList();
+  ids.ids = { "f1" };
+  face_pub.publish(ids);
+
+  // wait for lihri to pick up the new face
+  WAIT(200);
+
+  ASSERT_NE(persons["p1"]->face().lock(), nullptr)
+      << "the face has been published -> should now be associated to the person.";
+
+
+  ASSERT_FALSE(persons["p1"]->face().expired());
+  ASSERT_EQ(persons["p1"]->face().lock()->id(), "f1");
+
+  ids.ids = { "f1", "f2" };
+  face_pub.publish(ids);
+
+  WAIT(200);
+
+  auto face_f1 = persons["p1"]->face();
+
+  ASSERT_FALSE(face_f1.expired());
+  ASSERT_EQ(face_f1.lock()->id(), "f1");
+
+  match.face_id = "f2";
+  match.person_id = "p1";
+  match.confidence = 0.8;
+
+  pub.publish(match);
+
+  WAIT(100);
+
+  auto face_f2 = persons["p1"]->face();
+
+  ASSERT_FALSE(face_f1.expired()) << "face 'f1' still exists";
+  ASSERT_FALSE(face_f2.expired()) << "face 'f2' should now be the mostly likely face of 'p1'";
+  ASSERT_EQ(face_f2.lock()->id(), "f2");
 
   spinner.stop();
 }
