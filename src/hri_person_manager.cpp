@@ -17,9 +17,14 @@ using namespace std;
 
 // the 3 publishers are, in order: face_id, body_id, voice_id
 map<ID, array<Publisher, 3>> persons_pub;
+map<ID, bool> actively_tracked_persons;
 
 
+// actively tracked persons (eg, one of face_id, body_id or voice_id is not empty for that person)
 Publisher tracked_persons_pub;
+// known persons: either actively tracked ones, or not tracked anymore (but
+// still known to the robot)
+Publisher known_persons_pub;
 
 PersonMatcher person_matcher;
 
@@ -99,7 +104,7 @@ void initialize_person_publishers(NodeHandle& nh, ID id)
   {
     persons_list.ids.push_back(kv.first);
   }
-  tracked_persons_pub.publish(persons_list);
+  known_persons_pub.publish(persons_list);
 }
 
 void remove_person(ID id)
@@ -137,23 +142,39 @@ void publish_persons(NodeHandle& nh)
       initialize_person_publishers(nh, id);
     }
 
+    actively_tracked_persons[id] = false;
+
     std_msgs::String msg;
     if (association.find(FeatureType::face) != association.end())
     {
       msg.data = association.at(face);
       persons_pub[id][0].publish(msg);
+      actively_tracked_persons[id] = true;
     }
     if (association.find(FeatureType::body) != association.end())
     {
       msg.data = association.at(body);
       persons_pub[id][1].publish(msg);
+      actively_tracked_persons[id] = true;
     }
     if (association.find(FeatureType::voice) != association.end())
     {
       msg.data = association.at(voice);
       persons_pub[id][2].publish(msg);
+      actively_tracked_persons[id] = true;
     }
   }
+
+  // publish the list of currently actively tracked persons
+  hri_msgs::IdsList persons_list;
+  for (auto const& kv : actively_tracked_persons)
+  {
+    if (kv.second)
+    {
+      persons_list.ids.push_back(kv.first);
+    }
+  }
+  tracked_persons_pub.publish(persons_list);
 
   dirty = false;
 }
@@ -173,6 +194,7 @@ int main(int argc, char** argv)
   HRIListener hri_listener;
 
   tracked_persons_pub = nh.advertise<hri_msgs::IdsList>("/humans/persons/tracked", 1, true);
+  known_persons_pub = nh.advertise<hri_msgs::IdsList>("/humans/persons/known", 1, true);
 
   dirty = true;
 

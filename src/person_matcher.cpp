@@ -68,7 +68,6 @@ void PersonMatcher::update(Relations relations)
   {
     std::tie(id1, type1, id2, type2, p) = rel;
 
-    float weight = log(1. / p);
 
     // cout << "==== " << id1 << " <-> " << id2 << " ====" << endl;
     // cout << "p=" << p << " -> w=" << weight << endl;
@@ -98,8 +97,17 @@ void PersonMatcher::update(Relations relations)
       v2 = map2[id2];
     }
 
+    if (p <= 0.0)
+    {
+      remove_edge(v1, v2, g);
+      continue;
+    }
+
     Edge edge;
     bool ok;
+
+
+    float weight = log(1. / p);
 
     std::tie(edge, ok) = add_edge(v1, v2, weight, g);
 
