@@ -44,6 +44,8 @@ using namespace ros;
 // waiting time for the libhri callback to process their inputs
 #define WAIT(X) std::this_thread::sleep_for(std::chrono::milliseconds(X))
 
+const string ANONYMOUS("anonymous");
+
 TEST(hri_person_matcher, BasicAssociationModel)
 {
   auto model = PersonMatcher(0.4);
@@ -171,6 +173,7 @@ TEST(hri_person_matcher, RemoveAddIds)
   EXPECT_EQ(association, (map<FeatureType, ID>{ { hri::face, "f1" }, { hri::body, "b1" } }));
 }
 
+
 TEST(hri_person_manager, ROSNode)
 {
   NodeHandle nh;
@@ -251,6 +254,51 @@ TEST(hri_person_manager, ROSNode)
   ASSERT_FALSE(face_f1.expired()) << "face 'f1' still exists";
   ASSERT_FALSE(face_f2.expired()) << "face 'f2' should now be the mostly likely face of 'p1'";
   ASSERT_EQ(face_f2.lock()->id(), "f2");
+
+  spinner.stop();
+}
+
+TEST(hri_person_manager, AnonymousPersons)
+{
+  NodeHandle nh;
+
+  ros::AsyncSpinner spinner(1);
+  spinner.start();
+
+  HRIListener hri_listener;
+
+  Publisher pub = nh.advertise<hri_msgs::IdsMatch>("/humans/candidate_matches", 1);
+
+  // wait for the hri_person_manager node to be up
+  WAIT(500);
+
+  hri_msgs::IdsMatch match;
+  match.face_id = "f1";
+
+  pub.publish(match);
+
+  WAIT(100);
+
+  ASSERT_EQ(hri_listener.getPersons().size(), 1);
+
+  auto persons = hri_listener.getPersons();
+  ASSERT_TRUE(persons.find("f1") != persons.end());
+
+  ASSERT_TRUE(persons["f1"]->anonymous());
+
+  match.face_id = "f1";
+  match.person_id = "p1";
+  match.confidence = 0.8;
+
+  pub.publish(match);
+
+  WAIT(100);
+
+  ASSERT_EQ(hri_listener.getPersons().size(), 1);
+
+  persons = hri_listener.getPersons();
+  ASSERT_TRUE(persons.find("p1") != persons.end())
+      << "the anonymous 'f1' person should have disappeared, since face 'f1' is now associated to a person";
 
   spinner.stop();
 }

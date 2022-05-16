@@ -1,4 +1,5 @@
 #include <std_msgs/String.h>
+#include <std_msgs/Bool.h>
 #include <hri_msgs/IdsMatch.h>
 #include <hri_msgs/IdsList.h>
 #include <ros/ros.h>
@@ -15,10 +16,11 @@ using namespace ros;
 using namespace hri;
 using namespace std;
 
-// the 3 publishers are, in order: face_id, body_id, voice_id
-map<ID, array<Publisher, 3>> persons_pub;
+// the 4 publishers are, in order: face_id, body_id, voice_id, anonymous
+map<ID, array<Publisher, 4>> persons_pub;
 map<ID, bool> actively_tracked_persons;
 
+const string ANONYMOUS("anonymous");
 
 // actively tracked persons (eg, one of face_id, body_id or voice_id is not empty for that person)
 Publisher tracked_persons_pub;
@@ -35,6 +37,9 @@ void onCandidateMatch(hri_msgs::IdsMatchConstPtr match)
   FeatureType type1, type2;
   ID id1, id2;
 
+  // if not overwritten (eg, only one specified id), id2 is 'anonymous'
+  type2 = FeatureType::person;
+  id2 = ANONYMOUS;
 
   if (!match->person_id.empty())
   {
@@ -84,7 +89,12 @@ void onCandidateMatch(hri_msgs::IdsMatchConstPtr match)
     }
   }
 
-  person_matcher.update({ { id1, type1, id2, type2, match->confidence } });
+  float confidence;
+  // if we are describing an 'anonymous' person, set the confidence level to a
+  // low value so that any better matching witll take precedence.
+  confidence = (id2 == ANONYMOUS) ? 0.01 : match->confidence;
+
+  person_matcher.update({ { id1, type1, id2, type2, confidence } });
 
   dirty = true;
 }
@@ -95,6 +105,7 @@ void initialize_person_publishers(NodeHandle& nh, ID id)
       nh.advertise<std_msgs::String>(string("/humans/persons/") + id + "/face_id", 1, true),
       nh.advertise<std_msgs::String>(string("/humans/persons/") + id + "/body_id", 1, true),
       nh.advertise<std_msgs::String>(string("/humans/persons/") + id + "/voice_id", 1, true),
+      nh.advertise<std_msgs::Bool>(string("/humans/persons/") + id + "/anonymous", 1, true),
   } };
 
   // publish an updated list of tracked persons
@@ -135,6 +146,19 @@ void publish_persons(NodeHandle& nh)
   {
     ID id = kv.first;
     auto association = kv.second;
+
+    bool anonymous = (id == ANONYMOUS) ? true : false;
+
+    if (anonymous)
+    {
+      // TODO id =
+    }
+    else
+    {
+      std_msgs::Bool msg;
+      msg.data = false;
+      persons_pub[id][3].publish(msg);
+    }
 
     // new person? first, create the publishers
     if (persons_pub.find(id) == persons_pub.end())
