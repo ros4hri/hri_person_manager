@@ -7,6 +7,7 @@ set (CMAKE_CXX_STANDARD 11)
 
 find_package(catkin REQUIRED COMPONENTS
   hri
+  tf2_ros
   hri_msgs
   roscpp
 )
@@ -22,7 +23,7 @@ include_directories(
 
 catkin_package(
   LIBRARIES hri_person_manager
-  CATKIN_DEPENDS hri hri_msgs roscpp
+  CATKIN_DEPENDS hri tf2_ros hri_msgs roscpp
 )
 
 
