@@ -158,11 +158,35 @@ public:
     for (const auto& kv : persons)
     {
       ID id = kv.first;
+
+      ROS_INFO_STREAM("Processing person <" << id << ">");
+
       auto association = kv.second;
 
       bool anonymous = (id == ANONYMOUS) ? true : false;
 
+      ROS_INFO_STREAM(" - is anonymous? " << anonymous);
+
       ID face_id, body_id, voice_id;
+
+      if (association.find(FeatureType::face) != association.end())
+      {
+        face_id = association.at(face);
+      }
+      if (association.find(FeatureType::body) != association.end())
+      {
+        body_id = association.at(body);
+      }
+      if (association.find(FeatureType::voice) != association.end())
+      {
+        voice_id = association.at(voice);
+      }
+
+      if (anonymous)
+      {
+        id = string("anon_person_") +
+             (face_id.empty() ? (body_id.empty() ? voice_id : body_id) : face_id);
+      }
 
       // new person? first, create the publishers
       if (persons_pub.find(id) == persons_pub.end())
@@ -170,40 +194,33 @@ public:
         initialize_person_publishers(id);
       }
 
-      if (anonymous)
-      {
-        // TODO id =
-      }
-      else
-      {
-        std_msgs::Bool msg;
-        msg.data = false;
-        persons_pub[id][3].publish(msg);
-      }
+      ////////////////////////////////////////////
+      // publish whether it is an anonymous person
 
-      actively_tracked_persons[id] = false;
+      std_msgs::Bool anon_msg;
+      anon_msg.data = anonymous;
+      persons_pub[id][3].publish(anon_msg);
+
 
       ////////////////////////////////////////////
       // publish the face, body, voice id corresponding to the person
 
+      actively_tracked_persons[id] = false;
       std_msgs::String msg;
-      if (association.find(FeatureType::face) != association.end())
+      if (!face_id.empty())
       {
-        face_id = association.at(face);
         msg.data = face_id;
         persons_pub[id][0].publish(msg);
         actively_tracked_persons[id] = true;
       }
-      if (association.find(FeatureType::body) != association.end())
+      if (!body_id.empty())
       {
-        body_id = association.at(body);
         msg.data = body_id;
         persons_pub[id][1].publish(msg);
         actively_tracked_persons[id] = true;
       }
-      if (association.find(FeatureType::voice) != association.end())
+      if (!voice_id.empty())
       {
-        voice_id = association.at(voice);
         msg.data = voice_id;
         persons_pub[id][2].publish(msg);
         actively_tracked_persons[id] = true;
