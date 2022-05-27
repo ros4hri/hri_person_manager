@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.0 (2022-05-27)
+------------------
 * increase candidate_matches subscriber queue to ensure no message missed
 * large refactor, moving 'managed persons' to their own class
   While here:
