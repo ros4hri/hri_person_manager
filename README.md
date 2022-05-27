@@ -30,8 +30,16 @@ parameter.
 Parameters
 ----------
 
-- `humans/match_threshold` (`float`, default: 0.5): the minimum level of
+- `/humans/match_threshold` (`float`, default: 0.5): the minimum level of
   likelihood to consider a face/body/voice to belong to a given person.
+
+- `/humans/reference_frame` (`string`, default: `map`): persons' TF frames are
+  published with respect to `reference_frame`. Typically, faces/bodies/voices
+  frames are published wrt to their respective sensors frame.
+  `hri_person_manager` instead publishes TF frames of humans in `reference_frame`.
+  `reference_frame` is usually a 'static' frame (eg `map`), so that if the
+  person moves out of view of the robot (and therefore, its position can not be
+  updated anymore), it 'stays' where it was last seen.
 
 Installation
 ------------

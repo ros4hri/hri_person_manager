@@ -30,7 +30,8 @@ const float TIME_TO_DISAPPEAR = 10.;  // secs
 class PersonManager
 {
 public:
-  PersonManager(NodeHandle& nh) : nh(nh), tfListener(tfBuffer)
+  PersonManager(NodeHandle& nh, const string& reference_frame)
+    : nh(nh), reference_frame(reference_frame), tfListener(tfBuffer)
   {
     tracked_persons_pub = nh.advertise<hri_msgs::IdsList>("/humans/persons/tracked", 1, true);
     known_persons_pub = nh.advertise<hri_msgs::IdsList>("/humans/persons/known", 1, true);
@@ -232,9 +233,6 @@ public:
 
       string person_frame = string("person_") + id;
 
-      // TODO: make that configurable
-      string reference_frame = string("map");
-
       string target_frame;
 
       if (!face_id.empty())
@@ -359,6 +357,8 @@ private:
   tf2_ros::TransformListener tfListener;
   tf2_ros::TransformBroadcaster br;
 
+  string reference_frame;
+
   bool dirty;
   ros::Subscriber candidates;
 };
@@ -372,7 +372,11 @@ int main(int argc, char** argv)
   float match_threshold;
   ros::param::param<float>("/humans/match_threshold", match_threshold, 0.5);
 
-  PersonManager pm(nh);
+  string reference_frame;
+  ros::param::param<string>("/humans/reference_frame", reference_frame, "map");
+
+
+  PersonManager pm(nh, reference_frame);
 
   pm.set_threshold(match_threshold);
 
