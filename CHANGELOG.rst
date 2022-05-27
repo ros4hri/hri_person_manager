@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.1 (2022-05-27)
+------------------
 * fix variable shadowing/initialisation order
 * add missing dep on std_srvs
 * Contributors: Séverin Lemaignan
