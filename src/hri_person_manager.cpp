@@ -31,13 +31,13 @@ class PersonManager
 {
 public:
   PersonManager(NodeHandle& nh, const string& reference_frame)
-    : nh(nh), reference_frame(reference_frame), tfListener(tfBuffer)
+    : _nh(nh), _reference_frame(reference_frame), tfListener(tfBuffer)
   {
-    tracked_persons_pub = nh.advertise<hri_msgs::IdsList>("/humans/persons/tracked", 1, true);
-    known_persons_pub = nh.advertise<hri_msgs::IdsList>("/humans/persons/known", 1, true);
+    tracked_persons_pub = _nh.advertise<hri_msgs::IdsList>("/humans/persons/tracked", 1, true);
+    known_persons_pub = _nh.advertise<hri_msgs::IdsList>("/humans/persons/known", 1, true);
 
 
-    candidates = nh.subscribe<hri_msgs::IdsMatch>(
+    candidates = _nh.subscribe<hri_msgs::IdsMatch>(
         "/humans/candidate_matches", 10, bind(&PersonManager::onCandidateMatch, this, _1));
 
 
@@ -196,7 +196,7 @@ public:
 
   void initialize_person(ID id)
   {
-    persons[id] = make_shared<ManagedPerson>(nh, id, tfBuffer, reference_frame);
+    persons[id] = make_shared<ManagedPerson>(_nh, id, tfBuffer, _reference_frame);
 
     publishKnownPersons();
   }
@@ -296,7 +296,7 @@ public:
   }
 
 private:
-  NodeHandle& nh;
+  NodeHandle& _nh;
 
   map<ID, shared_ptr<ManagedPerson>> persons;
   vector<ID> previously_tracked;
@@ -313,7 +313,7 @@ private:
   tf2_ros::Buffer tfBuffer;
   tf2_ros::TransformListener tfListener;
 
-  string reference_frame;
+  string _reference_frame;
 
   ros::Subscriber candidates;
 };

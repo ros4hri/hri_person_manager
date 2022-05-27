@@ -9,14 +9,14 @@ ManagedPerson::ManagedPerson(NodeHandle& nh, ID id, tf2_ros::Buffer& tf_buffer,
                              const string& reference_frame)
   : _nh(&nh)
   , _id(id)
-  , _time_since_last_seen(0)
-  , _tf_buffer(&tf_buffer)
-  , _tf_reference_frame(reference_frame)
-  , _had_transform_at_least_once(false)
-  , _loc_confidence_dirty(false)
-  , _loc_confidence(0.)
-  , _anonymous(false)
   , _actively_tracked(false)
+  , _tf_reference_frame(reference_frame)
+  , _tf_buffer(&tf_buffer)
+  , _had_transform_at_least_once(false)
+  , _loc_confidence(0.)
+  , _loc_confidence_dirty(false)
+  , _anonymous(false)
+  , _time_since_last_seen(0)
 {
   face_id_pub = _nh->advertise<std_msgs::String>(NS + id + "/face_id", 1, true);
   body_id_pub = _nh->advertise<std_msgs::String>(NS + id + "/body_id", 1, true);
