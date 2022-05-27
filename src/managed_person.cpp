@@ -15,6 +15,8 @@ ManagedPerson::ManagedPerson(NodeHandle& nh, ID id, tf2_ros::Buffer& tf_buffer,
   , _had_transform_at_least_once(false)
   , _loc_confidence_dirty(false)
   , _loc_confidence(0.)
+  , _anonymous(false)
+  , _actively_tracked(false)
 {
   face_id_pub = _nh->advertise<std_msgs::String>(NS + id + "/face_id", 1, true);
   body_id_pub = _nh->advertise<std_msgs::String>(NS + id + "/body_id", 1, true);
@@ -44,6 +46,8 @@ void ManagedPerson::setFaceId(ID id)
   _face_id = id;
   id_msg.data = id;
   face_id_pub.publish(id_msg);
+
+  ROS_INFO_STREAM(" - face_id: " << id);
 }
 
 void ManagedPerson::setBodyId(ID id)
@@ -51,6 +55,8 @@ void ManagedPerson::setBodyId(ID id)
   _body_id = id;
   id_msg.data = id;
   body_id_pub.publish(id_msg);
+
+  ROS_INFO_STREAM(" - body_id: " << id);
 }
 
 void ManagedPerson::setVoiceId(ID id)
@@ -58,6 +64,8 @@ void ManagedPerson::setVoiceId(ID id)
   _voice_id = id;
   id_msg.data = id;
   voice_id_pub.publish(id_msg);
+
+  ROS_INFO_STREAM(" - voice_id: " << id);
 }
 
 void ManagedPerson::setAnonymous(bool anonymous)
@@ -65,6 +73,11 @@ void ManagedPerson::setAnonymous(bool anonymous)
   _anonymous = anonymous;
   bool_msg.data = anonymous;
   anonymous_pub.publish(bool_msg);
+
+  if (anonymous)
+  {
+    ROS_WARN_STREAM("new anonymous person " << _id);
+  }
 }
 
 void ManagedPerson::setLocationConfidence(float confidence)

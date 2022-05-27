@@ -34,12 +34,18 @@ public:
   void setFaceId(hri::ID id);
   void setBodyId(hri::ID id);
   void setVoiceId(hri::ID id);
+
   void setAnonymous(bool anonymous);
   bool anonymous() const
   {
     return _anonymous;
   }
+
   void setLocationConfidence(float confidence);
+  float locationConfidence() const
+  {
+    return _loc_confidence;
+  }
 
   hri::ID id() const
   {
