@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   hri
   tf2_ros
   hri_msgs
+  std_srvs
   roscpp
 )
 
@@ -23,7 +24,7 @@ include_directories(
 
 catkin_package(
   LIBRARIES hri_person_manager
-  CATKIN_DEPENDS hri tf2_ros hri_msgs roscpp
+  CATKIN_DEPENDS hri tf2_ros hri_msgs roscpp std_srvs
 )
 
 
