@@ -347,8 +347,6 @@ private:
 
   map<ID, pair<geometry_msgs::TransformStamped, ros::Time>> persons_last_transform;
 
-  HRIListener hri_listener;
-
   // actively tracked persons (eg, one of face_id, body_id or voice_id is not empty for that person)
   Publisher tracked_persons_pub;
   // known persons: either actively tracked ones, or not tracked anymore (but
