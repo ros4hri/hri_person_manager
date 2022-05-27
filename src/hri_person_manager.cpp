@@ -3,10 +3,10 @@
 #include <std_msgs/Float32.h>
 #include <hri_msgs/IdsMatch.h>
 #include <hri_msgs/IdsList.h>
+#include <std_srvs/Empty.h>
 #include <ros/ros.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <tf2_ros/transform_listener.h>
-#include <tf2_ros/transform_broadcaster.h>
 #include <hri/hri.h>
 #include <hri/base.h>
 #include <thread>
@@ -15,13 +15,13 @@
 #include <array>
 
 #include "person_matcher.h"
+#include "managed_person.h"
 #include "ros/node_handle.h"
 
 using namespace ros;
 using namespace hri;
 using namespace std;
 
-const string ANONYMOUS("anonymous");
 
 // after TIME_TO_DISAPPEAR seconds *without* actively seeing the person, the person tf
 // frame is not published anymore.
@@ -36,10 +36,29 @@ public:
     tracked_persons_pub = nh.advertise<hri_msgs::IdsList>("/humans/persons/tracked", 1, true);
     known_persons_pub = nh.advertise<hri_msgs::IdsList>("/humans/persons/known", 1, true);
 
-    dirty = true;
 
     candidates = nh.subscribe<hri_msgs::IdsMatch>(
         "/humans/candidate_matches", 1, bind(&PersonManager::onCandidateMatch, this, _1));
+
+
+
+    ROS_INFO("hri_person_manager ready. Waiting for candidate associations on /humans/candidate_matches");
+  }
+
+  bool reset(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res)
+  {
+    ROS_WARN("Clearing all associations between persons, faces, bodies, voices");
+    person_matcher.reset();
+
+    persons.clear();
+    previously_tracked.clear();
+    anonymous_persons.clear();
+
+    hri_msgs::IdsList persons_list;
+    tracked_persons_pub.publish(persons_list);
+    known_persons_pub.publish(persons_list);
+
+    return true;
   }
 
   void onCandidateMatch(hri_msgs::IdsMatchConstPtr match)
@@ -49,7 +68,7 @@ public:
 
     // if not overwritten (eg, only one specified id), id2 is 'anonymous'
     type2 = FeatureType::person;
-    id2 = ANONYMOUS;
+    id2 = hri::ANONYMOUS;
 
     if (!match->person_id.empty())
     {
@@ -99,30 +118,31 @@ public:
       }
     }
 
+    assert(!id1.empty());
+
     float confidence;
     // if we are describing an 'anonymous' person, set the confidence level to a
     // low value so that any better matching witll take precedence.
-    confidence = (id2 == ANONYMOUS) ? 0.01 : match->confidence;
+    confidence = (id2 == hri::ANONYMOUS) ? 0.01 : match->confidence;
+
+    // if id1 is 'egbd4', id2 becomes 'anonymous_person_' -> 'anonymous_person_egbd4'
+    // to create a 'unique' anonymous person for corresponding body part
+    if (id2 == hri::ANONYMOUS)
+    {
+      id2 += id1;
+    }
 
     person_matcher.update({ { id1, type1, id2, type2, confidence } });
-
-    dirty = true;
   }
 
-  void initialize_person_publishers(ID id)
+  void initialize_person(ID id)
   {
-    persons_pub[id] = { {
-        nh.advertise<std_msgs::String>(string("/humans/persons/") + id + "/face_id", 1, true),
-        nh.advertise<std_msgs::String>(string("/humans/persons/") + id + "/body_id", 1, true),
-        nh.advertise<std_msgs::String>(string("/humans/persons/") + id + "/voice_id", 1, true),
-        nh.advertise<std_msgs::Bool>(string("/humans/persons/") + id + "/anonymous", 1, true),
-        nh.advertise<std_msgs::Float32>(string("/humans/persons/") + id + "/location_confidence", 1),
-    } };
+    persons[id] = make_shared<ManagedPerson>(nh, id, tfBuffer, reference_frame);
 
     // publish an updated list of all known persons
     hri_msgs::IdsList persons_list;
 
-    for (auto const& kv : persons_pub)
+    for (auto const& kv : persons)
     {
       persons_list.ids.push_back(kv.first);
     }
@@ -131,42 +151,39 @@ public:
 
   void remove_person(ID id)
   {
+    // delete the person (the ManagedPerson destructor will also shutdown the
+    // corresponding topics)
+    persons.erase(id);
+
     // publish an updated list of tracked persons
     hri_msgs::IdsList persons_list;
 
-    for (auto const& kv : persons_pub)
+    for (auto const& kv : persons)
     {
       persons_list.ids.push_back(kv.first);
     }
     tracked_persons_pub.publish(persons_list);
-
-
-    // shutdown the person's sub-topics and delete the person
-    for (auto& pub : persons_pub.at(id))
-    {
-      pub.shutdown();
-    }
-    persons_pub.erase(id);
   }
 
-  void publish_persons()
+  void publish_persons(chrono::milliseconds elapsed_time)
   {
-    // if (!dirty)
-    //  return;
+    auto person_associations = person_matcher.get_all_associations();
 
-    auto persons = person_matcher.get_all_associations();
-
-    for (const auto& kv : persons)
+    for (const auto& kv : person_associations)
     {
       ID id = kv.first;
 
-      ROS_INFO_STREAM("Processing person <" << id << ">");
+      // new person? first, create it (incl its publishers)
+      if (persons.find(id) == persons.end())
+      {
+        initialize_person(id);
+      }
+
+      auto person = persons[id];
+
+      ROS_INFO_STREAM("Processing person <" << person->id() << ">");
 
       auto association = kv.second;
-
-      bool anonymous = (id == ANONYMOUS) ? true : false;
-
-      ROS_INFO_STREAM(" - is anonymous? " << anonymous);
 
       ID face_id, body_id, voice_id;
 
@@ -183,152 +200,30 @@ public:
         voice_id = association.at(voice);
       }
 
-      if (anonymous)
-      {
-        id = string("anon_person_") +
-             (face_id.empty() ? (body_id.empty() ? voice_id : body_id) : face_id);
-      }
-
-      // new person? first, create the publishers
-      if (persons_pub.find(id) == persons_pub.end())
-      {
-        initialize_person_publishers(id);
-      }
-
-      ////////////////////////////////////////////
-      // publish whether it is an anonymous person
-
-      std_msgs::Bool anon_msg;
-      anon_msg.data = anonymous;
-      persons_pub[id][3].publish(anon_msg);
-
-
       ////////////////////////////////////////////
       // publish the face, body, voice id corresponding to the person
-
-      actively_tracked_persons[id] = false;
-      std_msgs::String msg;
-      if (!face_id.empty())
-      {
-        msg.data = face_id;
-        persons_pub[id][0].publish(msg);
-        actively_tracked_persons[id] = true;
-      }
-      if (!body_id.empty())
-      {
-        msg.data = body_id;
-        persons_pub[id][1].publish(msg);
-        actively_tracked_persons[id] = true;
-      }
-      if (!voice_id.empty())
-      {
-        msg.data = voice_id;
-        persons_pub[id][2].publish(msg);
-        actively_tracked_persons[id] = true;
-      }
-
-      /////////////////////////////////////////////
-      // publish TF frame of the person
-
-
-      string person_frame = string("person_") + id;
-
-      string target_frame;
-
-      if (!face_id.empty())
-      {
-        target_frame = string("face_") + face_id;
-      }
-      else if (!body_id.empty())
-      {
-        target_frame = string("head_") + body_id;
-      }
-      else if (!voice_id.empty())
-      {
-        target_frame = string("voice_") + voice_id;
-      }
-
-      float location_confidence = 0.;
-
-      if (!target_frame.empty())
-      {
-        geometry_msgs::TransformStamped transform;
-        try
-        {
-          ROS_INFO_STREAM(" - get transform " << reference_frame << " <-> " << target_frame);
-          transform = tfBuffer.lookupTransform(reference_frame, target_frame, ros::Time(0));
-
-          transform.header.stamp = ros::Time::now();
-          transform.child_frame_id = person_frame;
-
-          persons_last_transform[id] = make_pair(transform, ros::Time::now());
-
-          br.sendTransform(transform);
-          location_confidence = 1.;
-        }
-        catch (tf2::TransformException ex)
-        {
-          ROS_WARN("%s", ex.what());
-        }
-      }
-      else
-      {
-        if (persons_last_transform.count(id) != 1)
-        {
-          ROS_DEBUG_STREAM(" - No face or body TF frame published for person "
-                           << id << ". Can not yet broadcast frame " << person_frame << ".");
-        }
-        else
-        {
-          auto time_last_transform = persons_last_transform[id].second;
-
-
-          location_confidence = computeLocationConfidence(time_last_transform);
-
-          if (location_confidence > 0.0)
-          {
-            ROS_INFO_STREAM(" - no transform available. Using last known transform");
-
-            auto transform = persons_last_transform[id].first;
-            transform.header.stamp = ros::Time::now();
-            br.sendTransform(transform);
-          }
-          else
-          {
-            ROS_INFO_STREAM(" - not seen for more than "
-                            << TIME_TO_DISAPPEAR << "s. Not publishing tf frame anymore.");
-          }
-        }
-      }
-
-      std_msgs::Float32 confidence;
-      confidence.data = location_confidence;
-      persons_pub[id][4].publish(confidence);
+      person->update(face_id, body_id, voice_id, elapsed_time);
     }
+
+    ////////////////////////////////////////////
     // publish the list of currently actively tracked persons
     hri_msgs::IdsList persons_list;
-    for (auto const& kv : actively_tracked_persons)
+    vector<ID> actively_tracked;
+
+    for (auto const& kv : persons)
     {
-      if (kv.second)
+      if (kv.second->activelyTracked())
       {
+        actively_tracked.push_back(kv.first);
         persons_list.ids.push_back(kv.first);
       }
     }
-    tracked_persons_pub.publish(persons_list);
 
-    dirty = false;
-  }
-
-  float computeLocationConfidence(ros::Time last_seen)
-  {
-    auto time_since_last_seen = (ros::Time::now() - last_seen).toSec();
-
-    if (time_since_last_seen > TIME_TO_DISAPPEAR)
+    if (actively_tracked != previously_tracked)
     {
-      return 0;
+      tracked_persons_pub.publish(persons_list);
+      previously_tracked = actively_tracked;
     }
-
-    return max(0., 1 - time_since_last_seen / TIME_TO_DISAPPEAR);
   }
 
   void set_threshold(float threshold)
@@ -339,11 +234,8 @@ public:
 private:
   NodeHandle& nh;
 
-  // the 4 publishers are, in order: face_id, body_id, voice_id, anonymous, location_confidence
-  map<ID, array<Publisher, 5>> persons_pub;
-  map<ID, bool> actively_tracked_persons;
-
-  map<ID, pair<geometry_msgs::TransformStamped, ros::Time>> persons_last_transform;
+  map<ID, shared_ptr<ManagedPerson>> persons;
+  vector<ID> previously_tracked;
 
   // actively tracked persons (eg, one of face_id, body_id or voice_id is not empty for that person)
   Publisher tracked_persons_pub;
@@ -355,11 +247,9 @@ private:
 
   tf2_ros::Buffer tfBuffer;
   tf2_ros::TransformListener tfListener;
-  tf2_ros::TransformBroadcaster br;
 
   string reference_frame;
 
-  bool dirty;
   ros::Subscriber candidates;
 };
 
@@ -380,14 +270,20 @@ int main(int argc, char** argv)
 
   pm.set_threshold(match_threshold);
 
+  ros::ServiceServer reset_service =
+      nh.advertiseService("/hri_person_manager/reset", &PersonManager::reset, &pm);
+
   ros::Rate loop_rate(10);
 
-
+  auto t0 = ros::Time::now();
   while (ros::ok())
   {
-    pm.publish_persons();
+    t0 = ros::Time::now();
     loop_rate.sleep();
     ros::spinOnce();
+
+    chrono::nanoseconds elapsed_time((ros::Time::now() - t0).toNSec());
+    pm.publish_persons(chrono::duration_cast<chrono::milliseconds>(elapsed_time));
   }
 
   return 0;

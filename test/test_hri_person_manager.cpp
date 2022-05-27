@@ -27,10 +27,12 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 #include <thread>
 #include <chrono>
 
 #include <ros/ros.h>
+#include <std_srvs/Empty.h>
 
 #include "hri/hri.h"
 #include "hri/base.h"
@@ -208,11 +210,12 @@ TEST(hri_person_manager, ROSNode)
   auto persons = hri_listener.getPersons();
   ASSERT_TRUE(persons.find("p1") != persons.end());
 
-  ASSERT_EQ(persons["p1"]->face().lock(), nullptr)
+  auto p1 = persons["p1"].lock();
+  ASSERT_EQ(p1->face().lock(), nullptr)
       << "the face has not yet been published -> can not be associated to the person yet.";
 
-  ASSERT_EQ(persons["p1"]->body().lock(), nullptr);
-  ASSERT_EQ(persons["p1"]->voice().lock(), nullptr);
+  ASSERT_EQ(p1->body().lock(), nullptr);
+  ASSERT_EQ(p1->voice().lock(), nullptr);
 
 
   // publish the face
@@ -224,19 +227,19 @@ TEST(hri_person_manager, ROSNode)
   // wait for lihri to pick up the new face
   WAIT(200);
 
-  ASSERT_NE(persons["p1"]->face().lock(), nullptr)
+  ASSERT_NE(p1->face().lock(), nullptr)
       << "the face has been published -> should now be associated to the person.";
 
 
-  ASSERT_FALSE(persons["p1"]->face().expired());
-  ASSERT_EQ(persons["p1"]->face().lock()->id(), "f1");
+  ASSERT_FALSE(p1->face().expired());
+  ASSERT_EQ(p1->face().lock()->id(), "f1");
 
   ids.ids = { "f1", "f2" };
   face_pub.publish(ids);
 
   WAIT(200);
 
-  auto face_f1 = persons["p1"]->face();
+  auto face_f1 = p1->face();
 
   ASSERT_FALSE(face_f1.expired());
   ASSERT_EQ(face_f1.lock()->id(), "f1");
@@ -249,7 +252,7 @@ TEST(hri_person_manager, ROSNode)
 
   WAIT(100);
 
-  auto face_f2 = persons["p1"]->face();
+  auto face_f2 = p1->face();
 
   ASSERT_FALSE(face_f1.expired()) << "face 'f1' still exists";
   ASSERT_FALSE(face_f2.expired()) << "face 'f2' should now be the mostly likely face of 'p1'";
@@ -262,8 +265,13 @@ TEST(hri_person_manager, AnonymousPersons)
 {
   NodeHandle nh;
 
+  ros::ServiceClient reset_srv = nh.serviceClient<std_srvs::Empty>("/hri_person_manager/reset");
+
   ros::AsyncSpinner spinner(1);
   spinner.start();
+
+  std_srvs::Empty empty;
+  reset_srv.call(empty);
 
   HRIListener hri_listener;
 
@@ -279,12 +287,18 @@ TEST(hri_person_manager, AnonymousPersons)
 
   WAIT(100);
 
-  ASSERT_EQ(hri_listener.getPersons().size(), 1);
 
   auto persons = hri_listener.getPersons();
-  ASSERT_TRUE(persons.find("f1") != persons.end());
+  for (auto& kv : persons)
+  {
+    ROS_WARN_STREAM(kv.first);
+  }
+  ASSERT_EQ(persons.size(), 1);
+  ASSERT_TRUE(persons.find("anonymous_person_f1") != persons.end())
+      << "the anonymous person 'anonymous_person_f1' should be published";
 
-  ASSERT_TRUE(persons["f1"]->anonymous());
+  auto f1 = persons["f1"].lock();
+  ASSERT_TRUE(f1->anonymous());
 
   match.face_id = "f1";
   match.person_id = "p1";
@@ -297,13 +311,14 @@ TEST(hri_person_manager, AnonymousPersons)
   ASSERT_EQ(hri_listener.getPersons().size(), 1);
 
   persons = hri_listener.getPersons();
-  ASSERT_TRUE(persons.find("p1") != persons.end())
+  ASSERT_TRUE(persons.find("p1") != persons.end());
+  ASSERT_TRUE(persons.find("f1") == persons.end())
       << "the anonymous 'f1' person should have disappeared, since face 'f1' is now associated to a person";
 
   spinner.stop();
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::Time::init();  // needed for ros::Time::now()

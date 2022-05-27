@@ -74,6 +74,11 @@ public:
    */
   void erase(hri::ID id);
 
+  /** clear the whole probabilistic graph.
+   */
+  void reset();
+
+
   /** returns the most likely association of a person to
    * its face/body/voice.
    */

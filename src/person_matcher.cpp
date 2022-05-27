@@ -58,6 +58,7 @@ void PersonMatcher::set_threshold(float likelihood_threshold)
 {
   threshold = log(1 / likelihood_threshold);
 }
+
 void PersonMatcher::update(Relations relations)
 {
   ID id1, id2;
@@ -130,6 +131,16 @@ void PersonMatcher::erase(ID id)
       return;
     }
   }
+}
+
+void PersonMatcher::reset()
+{
+  id_vertex_map[person] = {};
+  id_vertex_map[face] = {};
+  id_vertex_map[body] = {};
+  id_vertex_map[voice] = {};
+
+  g.clear();
 }
 
 map<FeatureType, ID> PersonMatcher::get_association(ID id) const

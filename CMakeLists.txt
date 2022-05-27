@@ -30,7 +30,8 @@ catkin_package(
 
 add_executable(${PROJECT_NAME}_node 
     src/hri_person_manager.cpp
-    src/person_matcher.cpp)
+    src/person_matcher.cpp
+    src/managed_person.cpp)
 
 ## Rename C++ executable without prefix
 set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")
@@ -55,7 +56,7 @@ include_directories(
 
 find_package(rostest REQUIRED)
 
-add_rostest_gtest(test_hri_person_manager test/test_hri_person_manager.test test/test_hri_person_manager.cpp src/person_matcher.cpp)
+add_rostest_gmock(test_hri_person_manager test/test_hri_person_manager.test test/test_hri_person_manager.cpp src/person_matcher.cpp)
 target_include_directories(test_hri_person_manager PRIVATE ${rostest_INCLUDE_DIRS})
 target_link_libraries(test_hri_person_manager ${catkin_LIBRARIES})
 
