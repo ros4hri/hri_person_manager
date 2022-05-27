@@ -118,27 +118,91 @@ public:
       }
     }
 
-    assert(!id1.empty());
-
-    float confidence;
-    // if we are describing an 'anonymous' person, set the confidence level to a
-    // low value so that any better matching witll take precedence.
-    confidence = (id2 == hri::ANONYMOUS) ? 0.01 : match->confidence;
-
-    // if id1 is 'egbd4', id2 becomes 'anonymous_person_' -> 'anonymous_person_egbd4'
-    // to create a 'unique' anonymous person for corresponding body part
-    if (id2 == hri::ANONYMOUS)
+    if (id1.empty())
     {
-      id2 += id1;
+      ROS_ERROR("received an empty match candidate");
+      return;
     }
 
+    float confidence;
+
+    if (id2 == hri::ANONYMOUS)
+    {
+      // if we are describing an 'anonymous' person, set the confidence level to
+      // one, as the anonymous person only exist because of that particular
+      // face/body/voice
+      confidence = 1.;
+
+      // if id1 is 'egbd4', id2 becomes 'anonymous_person_' -> 'anonymous_person_egbd4'
+      // to create a 'unique' anonymous person for corresponding body part
+      id2 += id1;
+
+      anonymous_persons.push_back(id1);
+    }
+    else
+    {
+      confidence = match->confidence;
+
+      // Remove previously-anonymous persons if needed
+
+      // id1 is a person associated to id2, and id2 previously had an anonymous person attached?
+      // => remove the anonymous person
+      if ((type1 == FeatureType::person) &&
+          std::find(anonymous_persons.begin(), anonymous_persons.end(), id2) !=
+              anonymous_persons.end())
+      {
+        ROS_WARN_STREAM("removing anonymous person "
+                        << hri::ANONYMOUS + id2 << " as it is not anonymous anymore");
+        person_matcher.erase(hri::ANONYMOUS + id2);
+        persons.erase(hri::ANONYMOUS + id2);
+        anonymous_persons.erase(
+            std::remove(anonymous_persons.begin(), anonymous_persons.end(), id2),
+            anonymous_persons.end());
+
+        publishKnownPersons();
+      }
+      // id1 & id2 are not persons, id1 associated to id2, both have an anonymous
+      // person attached?
+      // => remove one
+      else if (std::find(anonymous_persons.begin(), anonymous_persons.end(), id2) !=
+                   anonymous_persons.end() &&
+               std::find(anonymous_persons.begin(), anonymous_persons.end(), id1) !=
+                   anonymous_persons.end())
+      {
+        person_matcher.erase(hri::ANONYMOUS + id2);
+        persons.erase(hri::ANONYMOUS + id2);
+        anonymous_persons.erase(
+            std::remove(anonymous_persons.begin(), anonymous_persons.end(), id2),
+            anonymous_persons.end());
+
+        publishKnownPersons();
+      }
+    }
+
+
     person_matcher.update({ { id1, type1, id2, type2, confidence } });
+
+
+    // TODO:
+    // If you have the following associations:
+    // f1 -> anon_p1
+    // b2 -> f1
+    // and you add:
+    // b2 -> p2
+    // then anon_p1 should be removed (since f1 is now indirectly associated with p2)
+    //
+    // This is not handled yet.
   }
 
   void initialize_person(ID id)
   {
     persons[id] = make_shared<ManagedPerson>(nh, id, tfBuffer, reference_frame);
 
+    publishKnownPersons();
+  }
+
+  void publishKnownPersons()
+  {
     // publish an updated list of all known persons
     hri_msgs::IdsList persons_list;
 
@@ -236,6 +300,7 @@ private:
 
   map<ID, shared_ptr<ManagedPerson>> persons;
   vector<ID> previously_tracked;
+  vector<ID> anonymous_persons;
 
   // actively tracked persons (eg, one of face_id, body_id or voice_id is not empty for that person)
   Publisher tracked_persons_pub;
