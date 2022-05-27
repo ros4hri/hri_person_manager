@@ -38,7 +38,7 @@ public:
 
 
     candidates = nh.subscribe<hri_msgs::IdsMatch>(
-        "/humans/candidate_matches", 1, bind(&PersonManager::onCandidateMatch, this, _1));
+        "/humans/candidate_matches", 10, bind(&PersonManager::onCandidateMatch, this, _1));
 
 
 
