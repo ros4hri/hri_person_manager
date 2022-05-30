@@ -410,6 +410,7 @@ TEST(hri_person_manager, AnonymousPersons)
 
   ASSERT_TRUE(persons[anon_id].lock());
   auto f1 = persons[anon_id].lock();
+  ASSERT_TRUE(f1);
   ASSERT_TRUE(f1->anonymous());
   ASSERT_TRUE(f1->face().lock()) << "the anonymous person should be associated to its face";
   ASSERT_EQ(f1->face().lock()->id(), "f1");
