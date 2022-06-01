@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.2 (2022-06-01)
+------------------
 * attempting to fix unit-test compilation error on ferrum
 * Contributors: Séverin Lemaignan
 
