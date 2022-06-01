@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.3 (2022-06-01)
+------------------
 * update to new IdsMatch.msg
 * Contributors: Séverin Lemaignan
 
