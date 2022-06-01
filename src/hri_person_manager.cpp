@@ -66,62 +66,70 @@ public:
     FeatureType type1, type2;
     ID id1, id2;
 
-    // if not overwritten (eg, only one specified id), id2 is 'anonymous'
-    type2 = FeatureType::person;
-    id2 = hri::ANONYMOUS;
-
-    if (!match->person_id.empty())
-    {
-      type1 = FeatureType::person;
-      id1 = match->person_id;
-    }
-
-    if (!match->face_id.empty())
-    {
-      if (!id1.empty())
-      {
-        type2 = FeatureType::face;
-        id2 = match->face_id;
-      }
-      else
-      {
-        type1 = FeatureType::face;
-        id1 = match->face_id;
-      }
-    }
-
-    if (!match->body_id.empty())
-    {
-      if (!id1.empty())
-      {
-        type2 = FeatureType::body;
-        id2 = match->body_id;
-      }
-      else
-      {
-        type1 = FeatureType::body;
-        id1 = match->body_id;
-      }
-    }
-
-    if (!match->voice_id.empty())
-    {
-      if (!id1.empty())
-      {
-        type2 = FeatureType::voice;
-        id2 = match->voice_id;
-      }
-      else
-      {
-        type1 = FeatureType::voice;
-        id1 = match->voice_id;
-      }
-    }
+    id1 = match->id1;
 
     if (id1.empty())
     {
-      ROS_ERROR("received an empty match candidate");
+      ROS_ERROR("received an empty id for id1");
       return;
+    }
+
+    id2 = match->id2;
+
+    if (id2.empty() && match->id2_type != hri_msgs::IdsMatch::UNSET)
+    {
+      ROS_ERROR_STREAM("received an empty id for id2, with type set to " << match->id2_type);
+      return;
+    }
+
+    switch (match->id1_type)
+    {
+      case hri_msgs::IdsMatch::PERSON:
+        type1 = FeatureType::person;
+        break;
+
+      case hri_msgs::IdsMatch::FACE:
+        type1 = FeatureType::face;
+        break;
+
+      case hri_msgs::IdsMatch::BODY:
+        type1 = FeatureType::body;
+        break;
+
+      case hri_msgs::IdsMatch::VOICE:
+        type1 = FeatureType::voice;
+        break;
+
+      default:
+        ROS_ERROR_STREAM("received an invalid type for id1: " << match->id1_type);
+        return;
+    }
+
+    switch (match->id2_type)
+    {
+      case hri_msgs::IdsMatch::PERSON:
+        type2 = FeatureType::person;
+        break;
+
+      case hri_msgs::IdsMatch::FACE:
+        type2 = FeatureType::face;
+        break;
+
+      case hri_msgs::IdsMatch::BODY:
+        type2 = FeatureType::body;
+        break;
+
+      case hri_msgs::IdsMatch::VOICE:
+        type2 = FeatureType::voice;
+        break;
+
+      case hri_msgs::IdsMatch::UNSET:
+        type2 = FeatureType::person;
+        id2 = hri::ANONYMOUS;
+
+      default:
+        ROS_ERROR_STREAM("received an invalid type for id2: " << match->id2_type);
+        return;
     }
 
     float confidence;

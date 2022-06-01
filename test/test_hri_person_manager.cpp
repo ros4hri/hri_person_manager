@@ -54,6 +54,10 @@ using namespace ros;
     ROS_WARN("done waiting");                                                            \
   }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 TEST(hri_person_matcher, BasicAssociationModel)
 {
   auto model = PersonMatcher(0.4);
@@ -116,6 +120,10 @@ TEST(hri_person_matcher, BasicAssociationModel)
 }
 
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 TEST(hri_person_matcher, AssociationNetwork)
 {
   auto model = PersonMatcher(0.4);
@@ -147,6 +155,10 @@ TEST(hri_person_matcher, AssociationNetwork)
   EXPECT_TRUE(association.find(hri::body) == association.end());
   EXPECT_TRUE(association.find(hri::voice) == association.end());
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 TEST(hri_person_matcher, ResetEraseIds)
 {
@@ -196,6 +208,10 @@ TEST(hri_person_matcher, ResetEraseIds)
 }
 
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 TEST(hri_person_manager, ROSNode)
 {
   NodeHandle nh;
@@ -217,8 +233,11 @@ TEST(hri_person_manager, ROSNode)
 
 
   hri_msgs::IdsMatch match;
-  match.face_id = "f1";
-  match.person_id = "p1";
+  match.id1 = "f1";
+  match.id1_type = hri_msgs::IdsMatch::FACE;
+  match.id2 = "p1";
+  match.id2_type = hri_msgs::IdsMatch::PERSON;
+
   match.confidence = 0.7;
 
   pub.publish(match);
@@ -264,8 +283,10 @@ TEST(hri_person_manager, ROSNode)
   ASSERT_FALSE(face_f1.expired());
   ASSERT_EQ(face_f1.lock()->id(), "f1");
 
-  match.face_id = "f2";
-  match.person_id = "p1";
+  match.id1 = "f2";
+  match.id1_type = hri_msgs::IdsMatch::FACE;
+  match.id2 = "p1";
+  match.id2_type = hri_msgs::IdsMatch::PERSON;
   match.confidence = 0.8;
 
   pub.publish(match);
@@ -280,6 +301,10 @@ TEST(hri_person_manager, ROSNode)
 
   spinner.stop();
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 TEST(hri_person_manager, ROSReset)
 {
@@ -306,13 +331,17 @@ TEST(hri_person_manager, ROSReset)
   WAIT(500);
 
   hri_msgs::IdsMatch match;
-  match.face_id = "f1";
-  match.person_id = "p1";
+  match.id1 = "f1";
+  match.id1_type = hri_msgs::IdsMatch::FACE;
+  match.id2 = "p1";
+  match.id2_type = hri_msgs::IdsMatch::PERSON;
   match.confidence = 0.7;
 
   hri_msgs::IdsMatch match2;
-  match2.face_id = "f2";
-  match2.person_id = "p2";
+  match2.id1 = "f2";
+  match2.id1_type = hri_msgs::IdsMatch::FACE;
+  match2.id2 = "p2";
+  match2.id2_type = hri_msgs::IdsMatch::PERSON;
   match2.confidence = 0.7;
 
   pub.publish(match);
@@ -364,6 +393,10 @@ TEST(hri_person_manager, ROSReset)
   spinner.stop();
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 TEST(hri_person_manager, AnonymousPersons)
 {
   NodeHandle nh;
@@ -395,7 +428,8 @@ TEST(hri_person_manager, AnonymousPersons)
 
   // publish an 'anonymous' candidate
   hri_msgs::IdsMatch match;
-  match.face_id = "f1";
+  match.id1 = "f1";
+  match.id1_type = hri_msgs::IdsMatch::FACE;
   pub.publish(match);
 
   WAIT(400);
@@ -415,8 +449,10 @@ TEST(hri_person_manager, AnonymousPersons)
   ASSERT_TRUE(f1->face().lock()) << "the anonymous person should be associated to its face";
   ASSERT_EQ(f1->face().lock()->id(), "f1");
 
-  match.face_id = "f1";
-  match.person_id = "p1";
+  match.id1 = "f1";
+  match.id1_type = hri_msgs::IdsMatch::FACE;
+  match.id2 = "p1";
+  match.id2_type = hri_msgs::IdsMatch::PERSON;
   match.confidence = 0.8;
 
   pub.publish(match);
