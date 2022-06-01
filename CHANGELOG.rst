@@ -2,6 +2,11 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* attempting to fix unit-test compilation error on ferrum
+* Contributors: Séverin Lemaignan
+
 0.2.1 (2022-05-27)
 ------------------
 * fix variable shadowing/initialisation order
