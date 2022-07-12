@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.4 (2022-07-12)
+------------------
 * missing 'break' in a switch leading to mis-handling anonymous persons
 * Contributors: Séverin Lemaignan
 
