@@ -126,6 +126,7 @@ public:
       case hri_msgs::IdsMatch::UNSET:
         type2 = FeatureType::person;
         id2 = hri::ANONYMOUS;
+        break;
 
       default:
         ROS_ERROR_STREAM("received an invalid type for id2: " << match->id2_type);
