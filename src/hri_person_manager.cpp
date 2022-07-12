@@ -254,8 +254,6 @@ public:
 
       auto person = persons[id];
 
-      ROS_INFO_STREAM("Processing person <" << person->id() << ">");
-
       auto association = kv.second;
 
       ID face_id, body_id, voice_id;

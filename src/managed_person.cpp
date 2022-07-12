@@ -43,41 +43,48 @@ ManagedPerson::~ManagedPerson()
 
 void ManagedPerson::setFaceId(ID id)
 {
+  if (id != _face_id)
+  {
+    ROS_INFO_STREAM("[person <" << _id << ">] face_id updated to <" << id << ">");
+  }
+
   _face_id = id;
   id_msg.data = id;
   face_id_pub.publish(id_msg);
-
-  ROS_INFO_STREAM(" - face_id: " << id);
 }
 
 void ManagedPerson::setBodyId(ID id)
 {
+  if (id != _body_id)
+  {
+    ROS_INFO_STREAM("[person <" << _id << ">] body_id updated to <" << id << ">");
+  }
+
   _body_id = id;
   id_msg.data = id;
   body_id_pub.publish(id_msg);
-
-  ROS_INFO_STREAM(" - body_id: " << id);
 }
 
 void ManagedPerson::setVoiceId(ID id)
 {
+  if (id != _voice_id)
+  {
+    ROS_INFO_STREAM("[person <" << _id << ">] voice_id updated to <" << id << ">");
+  }
   _voice_id = id;
   id_msg.data = id;
   voice_id_pub.publish(id_msg);
-
-  ROS_INFO_STREAM(" - voice_id: " << id);
 }
 
 void ManagedPerson::setAnonymous(bool anonymous)
 {
-  _anonymous = anonymous;
-  bool_msg.data = anonymous;
-  anonymous_pub.publish(bool_msg);
-
-  if (anonymous)
+  if (anonymous && _anonymous != anonymous)
   {
     ROS_WARN_STREAM("new anonymous person " << _id);
   }
+  _anonymous = anonymous;
+  bool_msg.data = anonymous;
+  anonymous_pub.publish(bool_msg);
 }
 
 void ManagedPerson::setLocationConfidence(float confidence)
@@ -114,9 +121,9 @@ void ManagedPerson::update(ID face_id, ID body_id, ID voice_id, chrono::millisec
       {
         _loc_confidence = 0.;
         _loc_confidence_dirty = true;
-        ROS_INFO_STREAM("Not seen person " << _id << " for more than "
-                                           << LIFETIME_UNTRACKED_PERSON.count()
-                                           << ". Not publishing tf frame anymore.");
+        ROS_WARN_STREAM("[person <" << _id << ">] not seen for more than "
+                                    << LIFETIME_UNTRACKED_PERSON.count()
+                                    << ". Not publishing tf frame anymore.");
       }
     }
     else  // not tracked, but lifetime *not yet expired*
@@ -164,7 +171,8 @@ void ManagedPerson::publishFrame()
   {
     if (_tf_buffer->canTransform(_tf_reference_frame, target_frame, ros::Time(0)))
     {
-      ROS_INFO_STREAM(" - broadcast transform " << _tf_reference_frame << " <-> " << target_frame);
+      ROS_INFO_STREAM_ONCE("[person <" << _id << ">] broadcast transform "
+                                       << _tf_reference_frame << " <-> " << target_frame);
       try
       {
         _transform =
@@ -183,17 +191,17 @@ void ManagedPerson::publishFrame()
     }
     else
     {
-      ROS_INFO_STREAM(" - can not publish transform\n   (either reference frame "
-                      << _tf_reference_frame << " or target frame " << target_frame
-                      << " are not yet available)");
+      ROS_INFO_STREAM_ONCE("[person <" << _id << ">] can not publish transform (either reference frame <"
+                                       << _tf_reference_frame << "> or target frame <"
+                                       << target_frame << "> are not available)");
     }
   }
   else
   {
     if (!_had_transform_at_least_once)
     {
-      ROS_DEBUG_STREAM(" - No face, body or voice TF frame published for person "
-                       << _id << ". Can not yet broadcast frame " << _tf_frame << ".");
+      ROS_INFO_STREAM_ONCE("[person <" << _id << ">] no face, body or voice TF frame avail. Can not yet broadcast frame <"
+                                       << _tf_frame << ">.");
     }
     else
     {
