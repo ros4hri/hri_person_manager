@@ -2,6 +2,11 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* missing 'break' in a switch leading to mis-handling anonymous persons
+* Contributors: Séverin Lemaignan
+
 0.2.3 (2022-06-01)
 ------------------
 * update to new IdsMatch.msg
