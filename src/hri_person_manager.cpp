@@ -133,15 +133,9 @@ public:
         return;
     }
 
-    float confidence;
-
+    float confidence = match->confidence;
     if (id2 == hri::ANONYMOUS)
     {
-      // if we are describing an 'anonymous' person, set the confidence level to
-      // one, as the anonymous person only exist because of that particular
-      // face/body/voice
-      confidence = 1.;
-
       // if id1 is 'egbd4', id2 becomes 'anonymous_person_' -> 'anonymous_person_egbd4'
       // to create a 'unique' anonymous person for corresponding body part
       id2 += id1;
@@ -150,8 +144,6 @@ public:
     }
     else
     {
-      confidence = match->confidence;
-
       // Remove previously-anonymous persons if needed
 
       // id1 is a person associated to id2, and id2 previously had an anonymous person attached?
