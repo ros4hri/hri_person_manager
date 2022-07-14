@@ -41,6 +41,13 @@ public:
     return _anonymous;
   }
 
+  void setAlias(hri::ID id);
+  hri::ID alias() const
+  {
+    return _alias;
+  }
+
+
   void setLocationConfidence(float confidence);
   float locationConfidence() const
   {
@@ -101,7 +108,7 @@ private:
   std_msgs::Float32 float_msg;
   std_msgs::Bool bool_msg;
 
-  hri::ID alias;
+  hri::ID _alias;
 
   std::chrono::milliseconds _time_since_last_seen;
 };
