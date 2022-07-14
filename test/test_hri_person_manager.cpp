@@ -220,6 +220,7 @@ TEST(hri_person_manager, ROSNode)
   spinner.start();
 
   HRIListener hri_listener;
+  WAIT(100);
 
   Publisher pub = nh.advertise<hri_msgs::IdsMatch>("/humans/candidate_matches", 1);
 
@@ -242,7 +243,7 @@ TEST(hri_person_manager, ROSNode)
 
   pub.publish(match);
 
-  WAIT(100);
+  WAIT(200);
 
   ASSERT_EQ(hri_listener.getPersons().size(), 1);
 
@@ -317,6 +318,7 @@ TEST(hri_person_manager, ROSReset)
 
 
   HRIListener hri_listener;
+  WAIT(100);
 
   Publisher pub = nh.advertise<hri_msgs::IdsMatch>("/humans/candidate_matches", 1);
 
@@ -408,32 +410,27 @@ TEST(hri_person_manager, AnonymousPersons)
 
 
   HRIListener hri_listener;
+  WAIT(100);
 
   Publisher pub = nh.advertise<hri_msgs::IdsMatch>("/humans/candidate_matches", 1);
+  Publisher faces_pub = nh.advertise<hri_msgs::IdsList>("/humans/faces/tracked", 1);
+  Publisher bodies_pub = nh.advertise<hri_msgs::IdsList>("/humans/bodies/tracked", 1);
+  Publisher voices_pub = nh.advertise<hri_msgs::IdsList>("/humans/voices/tracked", 1);
 
 
   // wait for the hri_person_manager node to be up
   WAIT(500);
-
-  // publish the face
-  auto face_pub = nh.advertise<hri_msgs::IdsList>("/humans/faces/tracked", 1);
-  auto ids = hri_msgs::IdsList();
-  ids.ids = { "f1" };
-  face_pub.publish(ids);
-
-
+  //
   // clear the hri_person_manager
   std_srvs::Empty empty;
   reset_srv.call(empty);
 
-  // publish an 'anonymous' candidate
-  hri_msgs::IdsMatch match;
-  match.id1 = "f1";
-  match.id1_type = hri_msgs::IdsMatch::FACE;
-  pub.publish(match);
+  // publish the face
+  auto ids = hri_msgs::IdsList();
+  ids.ids = { "f1" };
+  faces_pub.publish(ids);
 
   WAIT(400);
-
 
   auto persons = hri_listener.getPersons();
   ASSERT_EQ(persons.size(), 1);
@@ -449,6 +446,25 @@ TEST(hri_person_manager, AnonymousPersons)
   ASSERT_TRUE(f1->face().lock()) << "the anonymous person should be associated to its face";
   ASSERT_EQ(f1->face().lock()->id(), "f1");
 
+  // remove the face
+  ids = hri_msgs::IdsList();
+  ids.ids = {};
+  faces_pub.publish(ids);
+
+  WAIT(400);
+
+  persons = hri_listener.getPersons();
+  ASSERT_EQ(persons.size(), 0) << "the anonymous person should have disappeared since its face is not detected anymore";
+
+  ids = hri_msgs::IdsList();
+  ids.ids = { "f1" };
+  faces_pub.publish(ids);
+
+  WAIT(400);
+
+  ASSERT_EQ(hri_listener.getPersons().size(), 1);
+
+  hri_msgs::IdsMatch match;
   match.id1 = "f1";
   match.id1_type = hri_msgs::IdsMatch::FACE;
   match.id2 = "p1";
@@ -459,13 +475,59 @@ TEST(hri_person_manager, AnonymousPersons)
 
   WAIT(400);
 
-  ASSERT_EQ(hri_listener.getPersons().size(), 1)
-      << "the anonymous 'f1' person should have disappeared, since face 'f1' is now associated to a person";
-
   persons = hri_listener.getPersons();
+  ASSERT_EQ(persons.size(), 1) << "the anonymous 'f1' person should have disappeared, since face 'f1' is now associated to a person";
+
   ASSERT_TRUE(persons.find("p1") != persons.end());
   ASSERT_TRUE(persons.find(anon_id) == persons.end())
       << "the anonymous 'f1' person should have disappeared, since face 'f1' is now associated to a person";
+
+
+  ids.ids = { "f1" };
+  faces_pub.publish(ids);
+  WAIT(400);
+  ASSERT_EQ(hri_listener.getPersons().size(), 1);
+
+  ids.ids = { "f1", "f2" };
+  faces_pub.publish(ids);
+  WAIT(400);
+  ASSERT_EQ(hri_listener.getPersons().size(), 2);
+
+  ids.ids = { "b1" };
+  bodies_pub.publish(ids);
+  WAIT(400);
+  ASSERT_EQ(hri_listener.getPersons().size(), 3);
+
+  match.id1 = "f2";
+  match.id1_type = hri_msgs::IdsMatch::FACE;
+  match.id2 = "b1";
+  match.id2_type = hri_msgs::IdsMatch::BODY;
+  match.confidence = 0.8;
+
+  pub.publish(match);
+
+  WAIT(400);
+
+  persons = hri_listener.getPersons();
+
+  ASSERT_EQ(persons.size(), 2);
+
+  ASSERT_TRUE(persons.find("p1") != persons.end());
+  ASSERT_TRUE(persons.find("p2") != persons.end());
+
+
+  ids.ids = { "f2" };
+  faces_pub.publish(ids);
+  WAIT(400);
+  ASSERT_EQ(hri_listener.getPersons().size(), 1);
+
+  match.id1 = "b1";
+  match.id1_type = hri_msgs::IdsMatch::BODY;
+  match.id2 = "p2";
+  match.id2_type = hri_msgs::IdsMatch::PERSON;
+  match.confidence = 0.8;
+
+  pub.publish(match);
 
   spinner.stop();
 }
