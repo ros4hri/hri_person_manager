@@ -87,6 +87,17 @@ void ManagedPerson::setAnonymous(bool anonymous)
   anonymous_pub.publish(bool_msg);
 }
 
+void ManagedPerson::setAlias(ID id)
+{
+  if (id != _alias)
+  {
+    ROS_INFO_STREAM("[person <" << _id << ">] set to be alias of <" << _alias << ">");
+  }
+  _alias = id;
+  id_msg.data = id;
+  alias_pub.publish(id_msg);
+}
+
 void ManagedPerson::setLocationConfidence(float confidence)
 {
   _loc_confidence = confidence;
