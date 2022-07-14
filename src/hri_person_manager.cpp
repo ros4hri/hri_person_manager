@@ -141,7 +141,7 @@ public:
       // to create a 'unique' anonymous person for corresponding body part
       id2 += id1;
 
-      anonymous_persons.push_back(id1);
+      anonymous_persons.insert(id1);
     }
     else
     {
@@ -149,33 +149,24 @@ public:
 
       // id1 is a person associated to id2, and id2 previously had an anonymous person attached?
       // => remove the anonymous person
-      if ((type1 == FeatureType::person) &&
-          std::find(anonymous_persons.begin(), anonymous_persons.end(), id2) !=
-              anonymous_persons.end())
+      if ((type1 == FeatureType::person) && anonymous_persons.count(id2) != 0)
       {
         ROS_WARN_STREAM("removing anonymous person "
                         << hri::ANONYMOUS + id2 << " as it is not anonymous anymore");
         person_matcher.erase(hri::ANONYMOUS + id2);
         persons.erase(hri::ANONYMOUS + id2);
-        anonymous_persons.erase(
-            std::remove(anonymous_persons.begin(), anonymous_persons.end(), id2),
-            anonymous_persons.end());
+        anonymous_persons.erase(id2);
 
         publishKnownPersons();
       }
       // id1 & id2 are not persons, id1 associated to id2, both have an anonymous
       // person attached?
       // => remove one
-      else if (std::find(anonymous_persons.begin(), anonymous_persons.end(), id2) !=
-                   anonymous_persons.end() &&
-               std::find(anonymous_persons.begin(), anonymous_persons.end(), id1) !=
-                   anonymous_persons.end())
+      else if (anonymous_persons.count(id2) != 0 && anonymous_persons.count(id1) != 0)
       {
         person_matcher.erase(hri::ANONYMOUS + id2);
         persons.erase(hri::ANONYMOUS + id2);
-        anonymous_persons.erase(
-            std::remove(anonymous_persons.begin(), anonymous_persons.end(), id2),
-            anonymous_persons.end());
+        anonymous_persons.erase(id2);
 
         publishKnownPersons();
       }
@@ -385,7 +376,7 @@ private:
 
   map<ID, shared_ptr<ManagedPerson>> persons;
   vector<ID> previously_tracked;
-  vector<ID> anonymous_persons;
+  set<ID> anonymous_persons;
 
   // hold the list of faces/bodies/voices that are already associated to a person
   // (so that we do not create un-needed anonymous persons)
