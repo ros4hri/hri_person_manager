@@ -5,10 +5,19 @@ using namespace std;
 using namespace ros;
 using namespace hri;
 
-ManagedPerson::ManagedPerson(NodeHandle& nh, ID id, tf2_ros::Buffer& tf_buffer,
-                             const string& reference_frame)
+ManagedPerson::ManagedPerson(ros::NodeHandle& nh, hri::ID id, ros::Publisher face_id_pub,
+                             ros::Publisher body_id_pub, ros::Publisher voice_id_pub,
+                             ros::Publisher alias_pub, ros::Publisher anonymous_pub,
+                             ros::Publisher loc_confidence_pub, tf2_ros::Buffer& tf_buffer,
+                             const std::string& reference_frame)
   : _nh(&nh)
   , _id(id)
+  , face_id_pub(face_id_pub)
+  , body_id_pub(body_id_pub)
+  , voice_id_pub(voice_id_pub)
+  , alias_pub(alias_pub)
+  , anonymous_pub(anonymous_pub)
+  , loc_confidence_pub(loc_confidence_pub)
   , _actively_tracked(false)
   , _tf_reference_frame(reference_frame)
   , _tf_buffer(&tf_buffer)
@@ -18,13 +27,9 @@ ManagedPerson::ManagedPerson(NodeHandle& nh, ID id, tf2_ros::Buffer& tf_buffer,
   , _anonymous(false)
   , _time_since_last_seen(0)
 {
-  face_id_pub = _nh->advertise<std_msgs::String>(NS + id + "/face_id", 1, true);
-  body_id_pub = _nh->advertise<std_msgs::String>(NS + id + "/body_id", 1, true);
-  voice_id_pub = _nh->advertise<std_msgs::String>(NS + id + "/voice_id", 1, true);
-  alias_pub = _nh->advertise<std_msgs::String>(NS + id + "/alias", 1, true);
-  anonymous_pub = _nh->advertise<std_msgs::Bool>(NS + id + "/anonymous", 1, true);
-  loc_confidence_pub = _nh->advertise<std_msgs::Float32>(NS + id + "/location_confidence", 1);
-
+  id_msg.header.id = _id;
+  float_msg.header.id = _id;
+  bool_msg.header.id = _id;
 
   setAnonymous((id.substr(0, ANONYMOUS.size()) == ANONYMOUS) ? true : false);
 
@@ -110,6 +115,10 @@ void ManagedPerson::update(ID face_id, ID body_id, ID voice_id, chrono::millisec
 {
   // a person is considered 'actively tracked' if at least one of its face/body/voice is tracked
   _actively_tracked = !face_id.empty() || !body_id.empty() || !voice_id.empty();
+
+  id_msg.header.header.stamp = ros::Time::now();
+  float_msg.header.header.stamp = ros::Time::now();
+  bool_msg.header.header.stamp = ros::Time::now();
 
   setFaceId(face_id);
   setBodyId(body_id);

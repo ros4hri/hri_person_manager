@@ -1,6 +1,7 @@
-#include <std_msgs/String.h>
-#include <std_msgs/Bool.h>
-#include <std_msgs/Float32.h>
+#include <hri_msgs/StringHRI.h>
+#include <hri_msgs/BoolHRI.h>
+#include <hri_msgs/Float32HRI.h>
+
 #include <hri_msgs/IdsMatch.h>
 #include <hri_msgs/IdsList.h>
 #include <std_srvs/Empty.h>
@@ -27,14 +28,24 @@ using namespace std;
 // frame is not published anymore.
 const float TIME_TO_DISAPPEAR = 10.;  // secs
 
+const std::string NS("/humans/persons/");
+
 class PersonManager
 {
 public:
   PersonManager(NodeHandle& nh, const string& reference_frame)
     : _nh(nh), _reference_frame(reference_frame), tfListener(tfBuffer)
   {
-    tracked_persons_pub = _nh.advertise<hri_msgs::IdsList>("/humans/persons/tracked", 1, true);
-    known_persons_pub = _nh.advertise<hri_msgs::IdsList>("/humans/persons/known", 1, true);
+    tracked_persons_pub = _nh.advertise<hri_msgs::IdsList>(NS + "/tracked", 1, true);
+    known_persons_pub = _nh.advertise<hri_msgs::IdsList>(NS + "/known", 1, true);
+
+    face_id_pub = _nh.advertise<hri_msgs::StringHRI>(NS + "/face_id", 1, true);
+    body_id_pub = _nh.advertise<hri_msgs::StringHRI>(NS + "/body_id", 1, true);
+    voice_id_pub = _nh.advertise<hri_msgs::StringHRI>(NS + "/voice_id", 1, true);
+    alias_pub = _nh.advertise<hri_msgs::StringHRI>(NS + "/alias", 1, true);
+    anonymous_pub = _nh.advertise<hri_msgs::BoolHRI>(NS + "/anonymous", 1, true);
+    loc_confidence_pub = _nh.advertise<hri_msgs::Float32HRI>(NS + "/location_confidence", 1);
+
 
 
     candidates = _nh.subscribe<hri_msgs::IdsMatch>(
@@ -197,9 +208,22 @@ public:
 
   void initialize_person(ID id)
   {
-    persons[id] = make_shared<ManagedPerson>(_nh, id, tfBuffer, _reference_frame);
+    // publish an updated list of all known persons
+    // *before* creating the instance of ManagedPerson.
+    // Doing so ensures that the client will see on /humans/persons/known the new person,
+    // and will be expecting its ID on the other topics.
+    hri_msgs::IdsList persons_list;
+    for (auto const& kv : persons)
+    {
+      persons_list.ids.push_back(kv.first);
+    }
+    persons_list.ids.push_back(id);
+    persons_list.header.stamp = ros::Time::now();
+    known_persons_pub.publish(persons_list);
 
-    publishKnownPersons();
+    persons[id] = make_shared<ManagedPerson>(_nh, id, face_id_pub, body_id_pub, voice_id_pub,
+                                             alias_pub, anonymous_pub, loc_confidence_pub,
+                                             tfBuffer, _reference_frame);
   }
 
   void publishKnownPersons()
@@ -227,6 +251,7 @@ public:
     {
       persons_list.ids.push_back(kv.first);
     }
+    persons_list.header.stamp = ros::Time::now();
     tracked_persons_pub.publish(persons_list);
   }
 
@@ -306,6 +331,13 @@ private:
   // known persons: either actively tracked ones, or not tracked anymore (but
   // still known to the robot)
   Publisher known_persons_pub;
+
+  Publisher face_id_pub;
+  Publisher body_id_pub;
+  Publisher voice_id_pub;
+  Publisher alias_pub;
+  Publisher anonymous_pub;
+  Publisher loc_confidence_pub;
 
   PersonMatcher person_matcher;
 

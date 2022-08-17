@@ -8,14 +8,12 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <hri/base.h>
 
-#include <std_msgs/String.h>
-#include <std_msgs/Bool.h>
-#include <std_msgs/Float32.h>
+#include <hri_msgs/StringHRI.h>
+#include <hri_msgs/BoolHRI.h>
+#include <hri_msgs/Float32HRI.h>
 
 namespace hri
 {
-const std::string NS("/humans/persons/");
-
 // after that period of time, the location confidence of the person will be reduced to 0,
 // and its TF transform won't be published anymore
 const std::chrono::seconds LIFETIME_UNTRACKED_PERSON(10);
@@ -26,8 +24,10 @@ const std::string ANONYMOUS("anonymous_person_");
 class ManagedPerson
 {
 public:
-  ManagedPerson(ros::NodeHandle& nh, hri::ID id, tf2_ros::Buffer& tf_buffer,
-                const std::string& reference_frame);
+  ManagedPerson(ros::NodeHandle& nh, hri::ID id, ros::Publisher face_id_pub,
+                ros::Publisher body_id_pub, ros::Publisher voice_id_pub, ros::Publisher alias_pub,
+                ros::Publisher anonymous_pub, ros::Publisher loc_confidence_pub,
+                tf2_ros::Buffer& tf_buffer, const std::string& reference_frame);
 
   ~ManagedPerson();
 
@@ -104,9 +104,9 @@ private:
   bool _loc_confidence_dirty;
   bool _anonymous;
 
-  std_msgs::String id_msg;
-  std_msgs::Float32 float_msg;
-  std_msgs::Bool bool_msg;
+  hri_msgs::StringHRI id_msg;
+  hri_msgs::Float32HRI float_msg;
+  hri_msgs::BoolHRI bool_msg;
 
   hri::ID _alias;
 
