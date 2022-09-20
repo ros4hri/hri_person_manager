@@ -130,7 +130,12 @@ public:
 
   void onFeatureLost(ID id)
   {
-    person_matcher.erase(id);
+    auto removed_persons = person_matcher.erase(id);
+
+    for (auto const& id : removed_persons)
+    {
+      remove_person(id);
+    }
   }
 
   void update(ID id1, FeatureType type1, ID id2, FeatureType type2, float confidence)
@@ -171,7 +176,6 @@ public:
         publishKnownPersons();
       }
     }
-
 
     person_matcher.update({ { id1, type1, id2, type2, confidence } });
 
@@ -285,19 +289,31 @@ public:
 
   void remove_person(ID id)
   {
+    if (!persons[id]->anonymous())
+    {
+      ROS_WARN_STREAM("Attempting to remove non-anonymous person "
+                      << id << ": this should not happen");
+      return;
+    }
+
     // delete the person (the ManagedPerson destructor will also shutdown the
     // corresponding topics)
     persons.erase(id);
 
-    // publish an updated list of tracked persons
+    // publish an updated list of known/tracked persons
     hri_msgs::IdsList persons_list;
 
     for (auto const& kv : persons)
     {
-      persons_list.ids.push_back(kv.first);
+      if (kv.second->activelyTracked())
+      {
+        persons_list.ids.push_back(kv.first);
+      }
     }
 
     tracked_persons_pub.publish(persons_list);
+
+    publishKnownPersons();
   }
 
   void publish_persons(chrono::milliseconds elapsed_time)
