@@ -37,7 +37,7 @@
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/dijkstra_shortest_paths.hpp>
 #include "hri/base.h"
-
+//#include <boost/graph/graphviz.hpp>
 
 using namespace std;
 using namespace hri;
@@ -117,9 +117,11 @@ void PersonMatcher::update(Relations relations)
       boost::put(boost::edge_weight_t(), g, edge, weight);
     }
   }
+
+  // write_graphviz(std::cout, g, default_writer());
 }
 
-void PersonMatcher::erase(ID id)
+std::set<ID> PersonMatcher::erase(ID id)
 {
   for (auto type : { person, face, body, voice })
   {
@@ -128,9 +130,37 @@ void PersonMatcher::erase(ID id)
       clear_vertex(id_vertex_map[type][id], g);
       remove_vertex(id_vertex_map[type][id], g);
       id_vertex_map[type].erase(id);
-      return;
     }
   }
+
+  set<ID> removed_persons;
+
+  // remove all orphan vertices
+  for (auto type : { person, face, body, voice })
+  {
+    set<ID> to_delete;
+    for (auto const& v : id_vertex_map[type])
+    {
+      if (out_degree(v.second, g) == 0)
+      {
+        remove_vertex(v.second, g);
+        to_delete.insert(v.first);
+
+        if (type == FeatureType::person)
+        {
+          removed_persons.insert(v.first);
+        }
+      }
+    }
+
+    for (auto const& id : to_delete)
+    {
+      id_vertex_map[type].erase(id);
+    }
+  }
+  // write_graphviz(std::cout, g, default_writer());
+
+  return removed_persons;
 }
 
 void PersonMatcher::reset()

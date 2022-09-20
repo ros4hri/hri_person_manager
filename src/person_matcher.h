@@ -71,8 +71,12 @@ public:
 
   /** deletes a given ID (be it a person, a face, a body or a voice) from
    * the probabilistic graph.
+   *
+   * Removes as well orphan nodes that might result from removing the given ID.
+   *
+   * The set of all *person* IDs removed during the process is returned.
    */
-  void erase(hri::ID id);
+  std::set<hri::ID> erase(hri::ID id);
 
   /** clear the whole probabilistic graph.
    */
