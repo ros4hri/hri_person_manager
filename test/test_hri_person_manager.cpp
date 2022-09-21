@@ -425,7 +425,9 @@ TEST(hri_person_manager, AnonymousPersons)
   std_srvs::Empty empty;
   reset_srv.call(empty);
 
-  // publish the face
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  // publish a face
   auto ids = hri_msgs::IdsList();
   ids.ids = { "f1" };
   faces_pub.publish(ids);
@@ -456,6 +458,8 @@ TEST(hri_person_manager, AnonymousPersons)
   persons = hri_listener.getPersons();
   ASSERT_EQ(persons.size(), 0) << "the anonymous person should have disappeared since its face is not detected anymore";
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+
   ids = hri_msgs::IdsList();
   ids.ids = { "f1" };
   faces_pub.publish(ids);
@@ -482,21 +486,33 @@ TEST(hri_person_manager, AnonymousPersons)
   ASSERT_TRUE(persons.find(anon_id) == persons.end())
       << "the anonymous 'f1' person should have disappeared, since face 'f1' is now associated to a person";
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  ids.ids = { "f1" };
-  faces_pub.publish(ids);
+  match.id1 = "f1";
+  match.id1_type = hri_msgs::IdsMatch::FACE;
+  match.id2 = "p1";
+  match.id2_type = hri_msgs::IdsMatch::PERSON;
+  match.confidence = 0.0;
+
+  pub.publish(match);
+
   WAIT(400);
-  ASSERT_EQ(hri_listener.getPersons().size(), 1);
+
+  ASSERT_EQ(hri_listener.getPersons().size(), 1)
+      << "face 'f1' is not associated to an actual person; it should re-create an anonymous person";
+
 
   ids.ids = { "f1", "f2" };
   faces_pub.publish(ids);
   WAIT(400);
-  ASSERT_EQ(hri_listener.getPersons().size(), 2);
+  ASSERT_EQ(hri_listener.getPersons().size(), 2)
+      << "2 anonymous persons are expected, one for each face f1 and f2";
 
   ids.ids = { "b1" };
   bodies_pub.publish(ids);
   WAIT(400);
-  ASSERT_EQ(hri_listener.getPersons().size(), 3);
+  ASSERT_EQ(hri_listener.getPersons().size(), 3)
+      << "a 3rd anonymous person should have been created for body b1";
 
   match.id1 = "f2";
   match.id1_type = hri_msgs::IdsMatch::FACE;
@@ -510,16 +526,15 @@ TEST(hri_person_manager, AnonymousPersons)
 
   persons = hri_listener.getPersons();
 
-  ASSERT_EQ(persons.size(), 2);
-
-  ASSERT_TRUE(persons.find("p1") != persons.end());
-  ASSERT_TRUE(persons.find("p2") != persons.end());
-
+  ASSERT_EQ(persons.size(), 2) << "f2 and b1 are now associated: one of the 2 anonymous persons should have disappeared";
 
   ids.ids = { "f2" };
   faces_pub.publish(ids);
   WAIT(400);
-  ASSERT_EQ(hri_listener.getPersons().size(), 1);
+  ASSERT_EQ(hri_listener.getPersons().size(), 1)
+      << "only one anonymous person, associated to f2 and b1 should remain";
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
 
   match.id1 = "b1";
   match.id1_type = hri_msgs::IdsMatch::BODY;
@@ -528,6 +543,13 @@ TEST(hri_person_manager, AnonymousPersons)
   match.confidence = 0.8;
 
   pub.publish(match);
+
+  WAIT(400);
+  persons = hri_listener.getPersons();
+  ASSERT_EQ(persons.size(), 1) << "only one non-anonymous person p2, associated to f2 and b1 should remain";
+
+  ASSERT_TRUE(persons.find("p1") == persons.end());
+  ASSERT_TRUE(persons.find("p2") != persons.end());
 
   spinner.stop();
 }
