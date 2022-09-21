@@ -579,10 +579,10 @@ TEST(hri_person_manager, AnonymousPersonsAdvanced)
 
   WAIT(200);
 
-  auto persons = hri_listener.getPersons();
+  persons = hri_listener.getPersons();
   ASSERT_EQ(persons.size(), 2);
 
-  auto anon_id = hri::ANONYMOUS + "b1";
+  anon_id = hri::ANONYMOUS + "b1";
   ASSERT_TRUE(persons.find(anon_id) != persons.end());
 
   persons = hri_listener.getTrackedPersons();
@@ -628,7 +628,6 @@ TEST(hri_person_manager, AnonymousPersonsAdvanced)
 
   ASSERT_EQ(hri_listener.getPersons().size(), 1);
 
-  hri_msgs::IdsMatch match;
   match.id1 = "f1";
   match.id1_type = hri_msgs::IdsMatch::FACE;
   match.id2 = "p1";
