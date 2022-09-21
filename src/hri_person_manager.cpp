@@ -268,6 +268,17 @@ public:
 
     person_matcher.update({ { id1, type1, id2, type2, confidence } });
 
+    // after an update, we might have new orphaned nodes (if the update sets a confidence of 0)
+    if (confidence == 0.0)
+    {
+      auto removed_persons = person_matcher.clear_orphans();
+
+      for (auto const& id : removed_persons)
+      {
+        remove_person(id);
+      }
+    }
+
 
     // TODO:
     // If you have the following associations:

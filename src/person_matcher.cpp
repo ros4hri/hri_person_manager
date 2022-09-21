@@ -30,6 +30,7 @@
 #include <cmath>
 #include <limits>
 #include <sstream>
+#include <stdexcept>
 #include <tuple>
 
 #include "person_matcher.h"
@@ -47,54 +48,61 @@ using namespace boost;
 
 typedef std::map<hri::FeatureType, std::map<hri::ID, Vertex>> IdVertexMap;
 
+//////////// helpers for write_graphviz ////////////////
 class node_label_writer
 {
 public:
-  node_label_writer(IdVertexMap _map) : id_vertex_map(_map)
+  node_label_writer(Graph _g, std::map<hri::FeatureType, std::set<hri::ID>> _id_types)
+    : g(_g), id_types(_id_types)
   {
   }
   template <class VertexOrEdge>
   void operator()(std::ostream& out, const VertexOrEdge& v) const
   {
-    for (auto type : { face, body, voice, person })
-    {
-      string feat;
-      switch (type)
-      {
-        case face:
-          feat = " [face]";
-          break;
-        case body:
-          feat = " [body]";
-          break;
-        case voice:
-          feat = " [voice]";
-          break;
-        case person:
-        case tracked_person:
-          feat = " [person]";
-          break;
-      }
+    auto name = get(&VertexProps::name, g, v);
 
-      for (const auto& kv : id_vertex_map.at(type))
+    hri::FeatureType type;
+
+    for (auto _type : { face, body, voice, person })
+    {
+      if (id_types.at(_type).count(name))
       {
-        if (kv.second == v)
-        {
-          if (kv.first.find(hri::ANONYMOUS) != std::string::npos)
-          {
-            out << "[style=dashed shape=box label=\"" << kv.first << feat << "\"]";
-          }
-          else
-          {
-            out << "[shape=box label=\"" << kv.first << feat << "\"]";
-          }
-        }
+        type = _type;
+        break;
       }
+    }
+    string feat;
+    switch (type)
+    {
+      case face:
+        feat = " [face]";
+        break;
+      case body:
+        feat = " [body]";
+        break;
+      case voice:
+        feat = " [voice]";
+        break;
+      case person:
+      case tracked_person:
+        feat = " [person]";
+        break;
+    }
+
+
+    if (name.find(hri::ANONYMOUS) != std::string::npos)
+    {
+      out << "[style=dashed shape=box label=\"" << name << feat << "\"]";
+    }
+    else
+    {
+      out << "[shape=box label=\"" << name << feat << "\"]";
     }
   }
 
 private:
-  IdVertexMap id_vertex_map;
+  Graph g;
+  std::map<hri::FeatureType, std::set<hri::ID>> id_types;
 };
 
 class weight_label_writer
@@ -113,16 +121,30 @@ public:
 private:
   Graph g;
 };
+///////////////////////////////////////////////////////////////////////////
 
+Vertex get_vertex(const Graph& g, const ID id)
+{
+  Graph::vertex_iterator v, vend;
+  for (boost::tie(v, vend) = vertices(g); v != vend; ++v)
+  {
+    if (id == get(&VertexProps::name, g, *v))
+    {
+      return *v;
+    }
+  }
+
+  return INEXISTANT_VERTEX;
+}
 
 PersonMatcher::PersonMatcher(float likelihood_threshold)
 {
   threshold = log(1 / likelihood_threshold);
 
-  id_vertex_map[person] = {};
-  id_vertex_map[face] = {};
-  id_vertex_map[body] = {};
-  id_vertex_map[voice] = {};
+  for (auto type : { face, body, voice, person })
+  {
+    id_types[type] = set<ID>();
+  }
 }
 
 void PersonMatcher::set_threshold(float likelihood_threshold)
@@ -144,29 +166,21 @@ void PersonMatcher::update(Relations relations)
     // cout << "==== " << id1 << " <-> " << id2 << " ====" << endl;
     // cout << "p=" << p << " -> w=" << weight << endl;
 
-    auto& map1 = id_vertex_map[type1];
-    auto& map2 = id_vertex_map[type2];
+    Vertex v1 = get_vertex(g, id1);
+    Vertex v2 = get_vertex(g, id2);
 
-    Vertex v1, v2;
-
-    if (map1.find(id1) == map1.end())
+    if (v1 == INEXISTANT_VERTEX)
     {
       v1 = add_vertex(g);
-      map1[id1] = v1;
-    }
-    else
-    {
-      v1 = map1[id1];
+      g[v1].name = id1;
+      id_types[type1].insert(id1);
     }
 
-    if (map2.find(id2) == map2.end())
+    if (v2 == INEXISTANT_VERTEX)
     {
       v2 = add_vertex(g);
-      map2[id2] = v2;
-    }
-    else
-    {
-      v2 = map2[id2];
+      g[v2].name = id2;
+      id_types[type2].insert(id2);
     }
 
     if (p <= 0.0)
@@ -196,84 +210,73 @@ std::set<ID> PersonMatcher::erase(ID id)
 {
   set<ID> removed_persons;
 
-  for (auto type : { person, face, body, voice })
+  Vertex v = get_vertex(g, id);
+  if (v == INEXISTANT_VERTEX)
   {
-    if (id_vertex_map[type].find(id) != id_vertex_map[type].end())
-    {
-      clear_vertex(id_vertex_map[type][id], g);
-      remove_vertex(id_vertex_map[type][id], g);
-      id_vertex_map[type].erase(id);
+    return removed_persons;
+  }
 
-      if (type == FeatureType::person)
+  clear_vertex(v, g);
+  remove_vertex(v, g);
+
+  erase_id(id);
+
+  if (id_types[person].count(id))
+  {
+    removed_persons.insert(id);
+  }
+
+  auto orphaned_persons = clear_orphans();
+
+  removed_persons.insert(orphaned_persons.begin(), orphaned_persons.end());
+
+  return removed_persons;
+}
+
+std::set<ID> PersonMatcher::clear_orphans()
+{
+  // remove all orphan vertices
+  set<Vertex> to_delete;
+  set<ID> removed_persons;
+
+  Graph::vertex_iterator v, vend;
+  for (boost::tie(v, vend) = vertices(g); v != vend; ++v)
+  {
+    if (out_degree(*v, g) == 0)
+    {
+      to_delete.insert(*v);
+
+      // is it a person node? if so, store it
+      ID id = get(&VertexProps::name, g, *v);
+      if (id_types[person].count(id))
       {
         removed_persons.insert(id);
       }
+
+      erase_id(id);
     }
   }
 
-
-  // remove all orphan vertices
-  for (auto type : { person, face, body, voice })
+  for (auto const& v : to_delete)
   {
-    set<ID> to_delete;
-    for (auto const& v : id_vertex_map[type])
-    {
-      if (out_degree(v.second, g) == 0)
-      {
-        remove_vertex(v.second, g);
-        to_delete.insert(v.first);
-
-        if (type == FeatureType::person)
-        {
-          removed_persons.insert(v.first);
-        }
-      }
-    }
-
-    for (auto const& id : to_delete)
-    {
-      id_vertex_map[type].erase(id);
-    }
+    remove_vertex(v, g);
   }
-  // write_graphviz(std::cout, g, default_writer());
 
   return removed_persons;
 }
 
 void PersonMatcher::reset()
 {
-  id_vertex_map[person] = {};
-  id_vertex_map[face] = {};
-  id_vertex_map[body] = {};
-  id_vertex_map[voice] = {};
-
   g.clear();
 }
 
 map<FeatureType, ID> PersonMatcher::get_association(ID id) const
 {
-  //  boost::property_map<Graph, vertex_index_t>::type vertex_ids = get(vertex_index, g);
-  //  boost::property_map<Graph, edge_weight_t>::type edge_probs = get(edge_weight, g);
-  //
-  //  cout << "vertices(g) = ";
-  //
-  //  for (auto vp : make_iterator_range(vertices(g)))
-  //  {
-  //    // cout << vertex_names[vp] << " ";
-  //    cout << vp << " ";
-  //  }
-  //  cout << endl;
-  //
-  //  cout << "edges(g) = ";
-  //
-  //  for (auto ei : make_iterator_range(edges(g)))
-  //  {
-  //    cout << "(" << vertex_ids[source(ei, g)] << "," << vertex_ids[target(ei, g)]
-  //         << ") => " << edge_probs[ei] << endl;
-  //  }
-  //  cout << endl;
-
-  auto vertex = id_vertex_map.at(person).at(id);
+  auto vertex = get_vertex(g, id);
+  if (vertex == INEXISTANT_VERTEX)
+  {
+    throw runtime_error("requesting associations for inexistant ID");
+  }
 
   // vector for storing distance property
   vector<float> d(num_vertices(g));
@@ -292,14 +295,14 @@ map<FeatureType, ID> PersonMatcher::get_association(ID id) const
   {
     for (auto type : { face, body, voice })
     {
-      for (const auto& kv : id_vertex_map.at(type))
+      for (const auto& id : id_types.at(type))
       {
-        if (kv.second == vp)
+        if (get_vertex(g, id) == vp)
         {
           if (d[vp] < best_candidates[type].second)
           {
             // cout << "best candidate: " << kv.first << " " << d[vp] << endl;
-            best_candidates[type] = { kv.first, d[vp] };
+            best_candidates[type] = { id, d[vp] };
             goto next_vertex;
           }
           else
@@ -331,9 +334,9 @@ map<ID, map<FeatureType, ID>> PersonMatcher::get_all_associations() const
 {
   map<ID, map<FeatureType, ID>> res;
 
-  for (const auto& kv : id_vertex_map.at(person))
+  for (const auto& id : id_types.at(person))
   {
-    res[kv.first] = get_association(kv.first);
+    res[id] = get_association(id);
   }
 
   return res;
@@ -342,9 +345,22 @@ map<ID, map<FeatureType, ID>> PersonMatcher::get_all_associations() const
 string PersonMatcher::get_graphviz() const
 {
   stringstream ss;
-  // write_graphviz(ss, g, my_label_writer(id_vertex_map), make_label_writer(get(edge_weight, g)));
-  write_graphviz(ss, g, node_label_writer(id_vertex_map), weight_label_writer(g));
+  write_graphviz(ss, g, node_label_writer(g, id_types), weight_label_writer(g));
 
   return ss.str();
+}
+
+/** warning: if the same ID is used for 2 different features (eg a face and a
+ * body), both will be deleted!
+ */
+void PersonMatcher::erase_id(ID id)
+{
+  for (auto type : { face, body, voice, person })
+  {
+    if (id_types[type].count(id))
+    {
+      id_types[type].erase(id);
+    }
+  }
 }
 

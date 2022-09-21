@@ -37,10 +37,16 @@
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/pending/property.hpp>
 
+
+struct VertexProps
+{
+  hri::ID name;
+};
 typedef boost::property<boost::edge_weight_t, float> EdgeWeightProperty;
 // use boost::setS to forbid parallel edges
-typedef boost::adjacency_list<boost::setS, boost::vecS, boost::undirectedS, boost::no_property, EdgeWeightProperty> Graph;
+typedef boost::adjacency_list<boost::setS, boost::vecS, boost::undirectedS, VertexProps, EdgeWeightProperty> Graph;
 typedef boost::graph_traits<Graph>::vertex_descriptor Vertex;
+const Vertex INEXISTANT_VERTEX(-1);
 typedef boost::graph_traits<Graph>::edge_descriptor Edge;
 
 typedef std::vector<std::tuple<hri::ID, hri::FeatureType, hri::ID, hri::FeatureType, float>> Relations;
@@ -78,6 +84,12 @@ public:
    */
   std::set<hri::ID> erase(hri::ID id);
 
+
+  /** removes orphaned nodes in the graph, and returns the list of
+   * removed *persons*
+   */
+  std::set<hri::ID> clear_orphans();
+
   /** clear the whole probabilistic graph.
    */
   void reset();
@@ -98,10 +110,11 @@ public:
   std::string get_graphviz() const;
 
 private:
-  // store the mapping ID <-> vertex in the graph, sorted by feature type
-  std::map<hri::FeatureType, std::map<hri::ID, Vertex>> id_vertex_map;
-
   Graph g;
+
+  void erase_id(hri::ID id);
+
+  std::map<hri::FeatureType, std::set<hri::ID>> id_types;
 
   float threshold;
 };
