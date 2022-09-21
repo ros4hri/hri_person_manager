@@ -26,22 +26,93 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+#include <boost/graph/properties.hpp>
 #include <cmath>
 #include <limits>
+#include <sstream>
 #include <tuple>
 
 #include "person_matcher.h"
-
+#include "managed_person.h"
 
 #include <boost/graph/detail/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/dijkstra_shortest_paths.hpp>
 #include "hri/base.h"
-//#include <boost/graph/graphviz.hpp>
+#include <boost/graph/graphviz.hpp>
 
 using namespace std;
 using namespace hri;
 using namespace boost;
+
+typedef std::map<hri::FeatureType, std::map<hri::ID, Vertex>> IdVertexMap;
+
+class node_label_writer
+{
+public:
+  node_label_writer(IdVertexMap _map) : id_vertex_map(_map)
+  {
+  }
+  template <class VertexOrEdge>
+  void operator()(std::ostream& out, const VertexOrEdge& v) const
+  {
+    for (auto type : { face, body, voice, person })
+    {
+      string feat;
+      switch (type)
+      {
+        case face:
+          feat = " [face]";
+          break;
+        case body:
+          feat = " [body]";
+          break;
+        case voice:
+          feat = " [voice]";
+          break;
+        case person:
+        case tracked_person:
+          feat = " [person]";
+          break;
+      }
+
+      for (const auto& kv : id_vertex_map.at(type))
+      {
+        if (kv.second == v)
+        {
+          if (kv.first.find(hri::ANONYMOUS) != std::string::npos)
+          {
+            out << "[style=dashed shape=box label=\"" << kv.first << feat << "\"]";
+          }
+          else
+          {
+            out << "[shape=box label=\"" << kv.first << feat << "\"]";
+          }
+        }
+      }
+    }
+  }
+
+private:
+  IdVertexMap id_vertex_map;
+};
+
+class weight_label_writer
+{
+public:
+  weight_label_writer(Graph _g) : g(_g)
+  {
+  }
+  template <class VertexOrEdge>
+  void operator()(std::ostream& out, const VertexOrEdge& e) const
+  {
+    auto w = get(boost::edge_weight_t(), g, e);
+    out << "[label=\"" << 1 / exp(w) << "\"]";
+  }
+
+private:
+  Graph g;
+};
 
 
 PersonMatcher::PersonMatcher(float likelihood_threshold)
@@ -267,3 +338,13 @@ map<ID, map<FeatureType, ID>> PersonMatcher::get_all_associations() const
 
   return res;
 }
+
+string PersonMatcher::get_graphviz() const
+{
+  stringstream ss;
+  // write_graphviz(ss, g, my_label_writer(id_vertex_map), make_label_writer(get(edge_weight, g)));
+  write_graphviz(ss, g, node_label_writer(id_vertex_map), weight_label_writer(g));
+
+  return ss.str();
+}
+

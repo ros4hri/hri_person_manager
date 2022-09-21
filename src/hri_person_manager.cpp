@@ -39,6 +39,7 @@ public:
   {
     tracked_persons_pub = _nh.advertise<hri_msgs::IdsList>("/humans/persons/tracked", 1, true);
     known_persons_pub = _nh.advertise<hri_msgs::IdsList>("/humans/persons/known", 1, true);
+    humans_graph_pub = _nh.advertise<std_msgs::String>("/humans/graph", 1, true);
 
 
     candidates = _nh.subscribe<hri_msgs::IdsMatch>(
@@ -334,6 +335,10 @@ public:
   {
     auto person_associations = person_matcher.get_all_associations();
 
+    std_msgs::String graphviz;
+    graphviz.data = person_matcher.get_graphviz();
+    humans_graph_pub.publish(graphviz);
+
     associated_faces.clear();
     associated_bodies.clear();
     associated_voices.clear();
@@ -421,6 +426,8 @@ private:
   // known persons: either actively tracked ones, or not tracked anymore (but
   // still known to the robot)
   Publisher known_persons_pub;
+
+  Publisher humans_graph_pub;
 
   PersonMatcher person_matcher;
 

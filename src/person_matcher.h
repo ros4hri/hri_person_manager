@@ -93,6 +93,10 @@ public:
    */
   std::map<hri::ID, std::map<hri::FeatureType, hri::ID>> get_all_associations() const;
 
+  /** returns the current likelihood graph in dot format
+   */
+  std::string get_graphviz() const;
+
 private:
   // store the mapping ID <-> vertex in the graph, sorted by feature type
   std::map<hri::FeatureType, std::map<hri::ID, Vertex>> id_vertex_map;
