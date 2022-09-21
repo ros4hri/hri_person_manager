@@ -140,6 +140,7 @@ public:
 
   void update(ID id1, FeatureType type1, ID id2, FeatureType type2, float confidence)
   {
+    // only id2 can be anonymous (cf onFace/onBody/onVoice above)
     if (id2 == hri::ANONYMOUS)
     {
       // if id1 is 'egbd4', id2 becomes 'anonymous_person_' -> 'anonymous_person_egbd4'
@@ -158,22 +159,33 @@ public:
       {
         ROS_WARN_STREAM("removing anonymous person "
                         << hri::ANONYMOUS + id2 << " as it is not anonymous anymore");
-        person_matcher.erase(hri::ANONYMOUS + id2);
-        persons.erase(hri::ANONYMOUS + id2);
-        anonymous_persons.erase(id2);
-
-        publishKnownPersons();
+        auto removed_persons = person_matcher.erase(hri::ANONYMOUS + id2);
+        for (auto const& id : removed_persons)
+        {
+          remove_person(id);
+        }
       }
+      else if ((type2 == FeatureType::person) && anonymous_persons.count(id1) != 0)
+      {
+        ROS_WARN_STREAM("removing anonymous person "
+                        << hri::ANONYMOUS + id1 << " as it is not anonymous anymore");
+        auto removed_persons = person_matcher.erase(hri::ANONYMOUS + id1);
+        for (auto const& id : removed_persons)
+        {
+          remove_person(id);
+        }
+      }
+
       // id1 & id2 are not persons, id1 associated to id2, both have an anonymous
       // person attached?
       // => remove one
       else if (anonymous_persons.count(id2) != 0 && anonymous_persons.count(id1) != 0)
       {
-        person_matcher.erase(hri::ANONYMOUS + id2);
-        persons.erase(hri::ANONYMOUS + id2);
-        anonymous_persons.erase(id2);
-
-        publishKnownPersons();
+        auto removed_persons = person_matcher.erase(hri::ANONYMOUS + id2);
+        for (auto const& id : removed_persons)
+        {
+          remove_person(id);
+        }
       }
     }
 
@@ -299,6 +311,8 @@ public:
     // delete the person (the ManagedPerson destructor will also shutdown the
     // corresponding topics)
     persons.erase(id);
+
+    anonymous_persons.erase(id);
 
     // publish an updated list of known/tracked persons
     hri_msgs::IdsList persons_list;

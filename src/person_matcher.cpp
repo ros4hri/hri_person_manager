@@ -123,6 +123,8 @@ void PersonMatcher::update(Relations relations)
 
 std::set<ID> PersonMatcher::erase(ID id)
 {
+  set<ID> removed_persons;
+
   for (auto type : { person, face, body, voice })
   {
     if (id_vertex_map[type].find(id) != id_vertex_map[type].end())
@@ -130,10 +132,14 @@ std::set<ID> PersonMatcher::erase(ID id)
       clear_vertex(id_vertex_map[type][id], g);
       remove_vertex(id_vertex_map[type][id], g);
       id_vertex_map[type].erase(id);
+
+      if (type == FeatureType::person)
+      {
+        removed_persons.insert(id);
+      }
     }
   }
 
-  set<ID> removed_persons;
 
   // remove all orphan vertices
   for (auto type : { person, face, body, voice })
