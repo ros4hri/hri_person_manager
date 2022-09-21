@@ -320,6 +320,11 @@ TEST(hri_person_manager, ROSReset)
   HRIListener hri_listener;
   WAIT(100);
 
+  // clear the hri_person_manager
+  std_srvs::Empty empty;
+  reset_srv.call(empty);
+
+
   Publisher pub = nh.advertise<hri_msgs::IdsMatch>("/humans/candidate_matches", 1);
 
   // publish a face
@@ -363,7 +368,6 @@ TEST(hri_person_manager, ROSReset)
   }
 
   // clear the hri_person_manager
-  std_srvs::Empty empty;
   reset_srv.call(empty);
 
   WAIT(400);
