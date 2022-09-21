@@ -439,7 +439,7 @@ TEST(hri_person_manager, AnonymousPersons)
   WAIT(400);
 
   auto persons = hri_listener.getPersons();
-  ASSERT_EQ(persons.size(), 1);
+  ASSERT_EQ(persons.size(), 1) << "an anonymous person should have been created";
 
   auto anon_id = hri::ANONYMOUS + "f1";
   ASSERT_TRUE(persons.find(anon_id) != persons.end())
@@ -557,6 +557,134 @@ TEST(hri_person_manager, AnonymousPersons)
 
   spinner.stop();
 }
+
+TEST(hri_person_manager, AnonymousPersons2)
+{
+  NodeHandle nh;
+
+  ros::ServiceClient reset_srv = nh.serviceClient<std_srvs::Empty>("/hri_person_manager/reset");
+
+  ros::AsyncSpinner spinner(1);
+  spinner.start();
+
+
+  HRIListener hri_listener;
+  WAIT(100);
+
+  Publisher pub = nh.advertise<hri_msgs::IdsMatch>("/humans/candidate_matches", 1);
+  Publisher faces_pub = nh.advertise<hri_msgs::IdsList>("/humans/faces/tracked", 1);
+
+
+  // wait for the hri_person_manager node to be up
+  WAIT(500);
+
+
+  // clear the hri_person_manager
+  std_srvs::Empty empty;
+  reset_srv.call(empty);
+
+
+  // publish (latched) faces before the hri_person_manager is fully started
+  auto ids = hri_msgs::IdsList();
+  ids.ids = { "f1", "f2" };
+  faces_pub.publish(ids);
+
+  WAIT(400);
+
+  auto persons = hri_listener.getPersons();
+  ASSERT_EQ(persons.size(), 2);
+
+  ids = hri_msgs::IdsList();
+  ids.ids = { "f1" };
+  faces_pub.publish(ids);
+
+  WAIT(400);
+
+  persons = hri_listener.getPersons();
+  ASSERT_EQ(persons.size(), 1);
+
+  spinner.stop();
+}
+
+TEST(hri_person_manager, AnonymousPersons3)
+{
+  NodeHandle nh;
+
+  ros::ServiceClient reset_srv = nh.serviceClient<std_srvs::Empty>("/hri_person_manager/reset");
+
+  ros::AsyncSpinner spinner(1);
+  spinner.start();
+
+
+  HRIListener hri_listener;
+  WAIT(100);
+
+  Publisher faces_pub = nh.advertise<hri_msgs::IdsList>("/humans/faces/tracked", 1);
+  Publisher bodies_pub = nh.advertise<hri_msgs::IdsList>("/humans/bodies/tracked", 1);
+
+  // wait for the hri_person_manager node to be up
+  WAIT(500);
+
+
+  // clear the hri_person_manager
+  std_srvs::Empty empty;
+  reset_srv.call(empty);
+
+
+  auto ids = hri_msgs::IdsList();
+  ids.ids = { "f1" };
+  faces_pub.publish(ids);
+
+  WAIT(400);
+
+  auto persons = hri_listener.getPersons();
+  ASSERT_EQ(persons.size(), 1);
+
+  auto anon_id = hri::ANONYMOUS + "f1";
+  ASSERT_TRUE(persons.find(anon_id) != persons.end());
+
+  ids.ids = { "b1" };
+  bodies_pub.publish(ids);
+
+  WAIT(400);
+
+  persons = hri_listener.getPersons();
+  ASSERT_EQ(persons.size(), 2);
+
+  anon_id = hri::ANONYMOUS + "f1";
+  ASSERT_TRUE(persons.find(anon_id) != persons.end());
+  anon_id = hri::ANONYMOUS + "b1";
+  ASSERT_TRUE(persons.find(anon_id) != persons.end());
+
+
+  ids.ids = { "f2" };
+  faces_pub.publish(ids);
+
+  WAIT(400);
+
+  persons = hri_listener.getPersons();
+  ASSERT_EQ(persons.size(), 2);
+
+  anon_id = hri::ANONYMOUS + "f2";
+  ASSERT_TRUE(persons.find(anon_id) != persons.end());
+  {
+    auto p_f2 = hri_listener.getPersons()[anon_id].lock();
+    ASSERT_FALSE(p_f2->body().lock());
+    ASSERT_TRUE(p_f2->face().lock());
+  }
+
+  anon_id = hri::ANONYMOUS + "b1";
+  ASSERT_TRUE(persons.find(anon_id) != persons.end());
+  {
+    auto p_b1 = hri_listener.getPersons()[anon_id].lock();
+    ASSERT_TRUE(p_b1->body().lock());
+    ASSERT_FALSE(p_b1->face().lock());
+  }
+
+
+  spinner.stop();
+}
+
 
 TEST(hri_person_manager, AnonymousPersonsAdvanced)
 {
