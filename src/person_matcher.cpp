@@ -246,8 +246,10 @@ std::set<ID> PersonMatcher::clear_orphans()
     {
       to_delete.insert(*v);
 
-      // is it a person node? if so, store it
       ID id = get(&VertexProps::name, g, *v);
+      ROS_INFO_STREAM(" ---> clearing orphan " << id);
+
+      // is it a person node? if so, store it
       if (id_types[person].count(id))
       {
         removed_persons.insert(id);

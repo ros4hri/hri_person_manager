@@ -31,6 +31,14 @@ using namespace std;
 // frame is not published anymore.
 const float TIME_TO_DISAPPEAR = 10.;  // secs
 
+enum UpdateType
+{
+  RELATION,
+  REMOVE
+};
+
+typedef std::tuple<UpdateType, ID, FeatureType, ID, FeatureType, float> Association;
+
 class PersonManager
 {
 public:
@@ -93,6 +101,12 @@ public:
       return;
     }
 
+    if (id1 == id2)
+    {
+      ROS_ERROR("candidate_matches with identical id1 and id2. Skipping.");
+      return;
+    }
+
     switch (match->id1_type)
     {
       case hri_msgs::IdsMatch::PERSON:
@@ -145,7 +159,9 @@ public:
     }
 
 
-    update(id1, type1, id2, type2, match->confidence);
+    {
+      updates.push_back({ RELATION, id1, type1, id2, type2, match->confidence });
+    }
   }
 
   void onFace(FaceWeakConstPtr face)
@@ -162,7 +178,8 @@ public:
       }
 
       // ...otherwise, create an anonymous person
-      update(id, FeatureType::face, hri::ANONYMOUS, FeatureType::person, 1.0);
+      updates.push_back(
+          { RELATION, id, FeatureType::face, hri::ANONYMOUS, FeatureType::person, 1.0 });
     }
   }
 
@@ -181,7 +198,8 @@ public:
       }
 
       // ...otherwise, create an anonymous person
-      update(id, FeatureType::body, hri::ANONYMOUS, FeatureType::person, 1.0);
+      updates.push_back(
+          { RELATION, id, FeatureType::body, hri::ANONYMOUS, FeatureType::person, 1.0 });
     }
   }
 
@@ -200,19 +218,15 @@ public:
       }
 
       // ...otherwise, create an anonymous person
-      update(id, FeatureType::voice, hri::ANONYMOUS, FeatureType::person, 1.0);
+      updates.push_back(
+          { RELATION, id, FeatureType::voice, hri::ANONYMOUS, FeatureType::person, 1.0 });
     }
   }
 
 
   void onFeatureLost(ID id)
   {
-    auto removed_persons = person_matcher.erase(id);
-
-    for (auto const& id : removed_persons)
-    {
-      remove_person(id);
-    }
+    updates.push_back({ REMOVE, id, FeatureType::person, id, FeatureType::person, 0. });
   }
 
   void update(ID id1, FeatureType type1, ID id2, FeatureType type2, float confidence)
@@ -236,6 +250,7 @@ public:
       {
         ROS_WARN_STREAM("removing anonymous person "
                         << hri::ANONYMOUS + id2 << " as it is not anonymous anymore");
+        anonymous_persons.erase(id2);
         auto removed_persons = person_matcher.erase(hri::ANONYMOUS + id2);
         for (auto const& id : removed_persons)
         {
@@ -246,6 +261,7 @@ public:
       {
         ROS_WARN_STREAM("removing anonymous person "
                         << hri::ANONYMOUS + id1 << " as it is not anonymous anymore");
+        anonymous_persons.erase(id1);
         auto removed_persons = person_matcher.erase(hri::ANONYMOUS + id1);
         for (auto const& id : removed_persons)
         {
@@ -313,22 +329,24 @@ public:
 
   void remove_person(ID id)
   {
-    if (!persons[id]->anonymous())
+    if (!persons.count(id))
     {
-      ROS_WARN_STREAM("Attempting to remove non-anonymous person "
-                      << id << ": this should not happen");
       return;
     }
 
-    // delete the person (the ManagedPerson destructor will also shutdown the
-    // corresponding topics)
-    persons.erase(id);
+    // unlike anonymous persons, non-anonymous person can not be removed -- they
+    // can merely become untracked.
+    if (persons[id]->anonymous())
+    {
+      // delete the person (the ManagedPerson destructor will also shutdown the
+      // corresponding topics)
+      persons.erase(id);
 
-    anonymous_persons.erase(id);
+      anonymous_persons.erase(id);
+    }
 
     // publish an updated list of known/tracked persons
     hri_msgs::IdsList persons_list;
-
     for (auto const& kv : persons)
     {
       if (kv.second->activelyTracked())
@@ -344,6 +362,50 @@ public:
 
   void publish_persons(chrono::milliseconds elapsed_time)
   {
+    ///////////////////////////////////
+    // first: housekeeping -> update the graph with all the last changes
+    UpdateType update_type;
+    ID id1, id2;
+    FeatureType type1, type2;
+    float p;
+
+    if (!updates.empty())
+    {
+      ROS_INFO_STREAM("Updating graph:");
+    }
+    for (auto u : updates)
+    {
+      std::tie(update_type, id1, type1, id2, type2, p) = u;
+
+      switch (update_type)
+      {
+        case REMOVE:
+        {
+          ROS_INFO_STREAM("- Remove ID: " << id1);
+
+          // while erasing the id id1, the person matcher might create
+          // orphans that are as well deleted by the person_matcher.
+          // The ids of the orphans that happened to be persons
+          // are returned by PersonMatcher::erase to then remove these
+          // persons from eg /humans/persons/tracked
+          auto removed_persons = person_matcher.erase(id1);
+
+          for (auto const& id : removed_persons)
+          {
+            remove_person(id);
+          }
+        }
+        break;
+        case RELATION:
+          ROS_INFO_STREAM("- Update relation: " << id1 << " (" << type1 << ") <--> "
+                                                << id2 << " (" << type2 << "); p=" << p);
+          update(id1, type1, id2, type2, p);
+          break;
+      }
+    }
+    updates.clear();
+    //////////////////////////
+
     auto person_associations = person_matcher.get_all_associations();
 
     std_msgs::String graphviz;
@@ -423,6 +485,8 @@ private:
   map<ID, shared_ptr<ManagedPerson>> persons;
   vector<ID> previously_tracked;
   set<ID> anonymous_persons;
+
+  vector<Association> updates;
 
   // hold the list of faces/bodies/voices that are already associated to a person
   // (so that we do not create un-needed anonymous persons)
