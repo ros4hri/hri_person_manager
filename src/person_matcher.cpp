@@ -230,38 +230,53 @@ std::set<ID> PersonMatcher::erase(ID id)
 
   removed_persons.insert(orphaned_persons.begin(), orphaned_persons.end());
 
+  check_duplicates(g);
   return removed_persons;
 }
 
 std::set<ID> PersonMatcher::clear_orphans()
 {
-  // remove all orphan vertices
-  set<Vertex> to_delete;
+  // remove all orphan vertices and return removed persons
   set<ID> removed_persons;
 
   Graph::vertex_iterator v, vend;
-  for (boost::tie(v, vend) = vertices(g); v != vend; ++v)
+
+  while (true)
   {
-    if (out_degree(*v, g) == 0)
+    bool found_orphan = false;
+    for (boost::tie(v, vend) = vertices(g); v != vend; ++v)
     {
-      to_delete.insert(*v);
-
-      ID id = get(&VertexProps::name, g, *v);
-      ROS_INFO_STREAM(" ---> clearing orphan " << id);
-
-      // is it a person node? if so, store it
-      if (id_types[person].count(id))
+      if (out_degree(*v, g) == 0)
       {
-        removed_persons.insert(id);
+        found_orphan = true;
+
+        ID id = get(&VertexProps::name, g, *v);
+        ROS_INFO_STREAM(" ---> clearing orphan " << id);
+
+        // is it a person node? if so, store it
+        if (id_types[person].count(id))
+        {
+          removed_persons.insert(id);
+        }
+
+        erase_id(id);
+
+        remove_vertex(*v, g);
+
+
+        // we break and restart the iteration over all the vertices of the graph
+        // because when a vertex is removed, the graph reindex all vertices -- if we were
+        // to first build a list of all vertices to delete, that list would be invalid
+        // after the first removed vertex.
+        break;
       }
-
-      erase_id(id);
     }
-  }
 
-  for (auto const& v : to_delete)
-  {
-    remove_vertex(v, g);
+    // continue until no more orphans
+    if (!found_orphan)
+    {
+      break;
+    }
   }
 
   return removed_persons;
