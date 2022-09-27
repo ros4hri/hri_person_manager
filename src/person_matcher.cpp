@@ -202,8 +202,6 @@ void PersonMatcher::update(Relations relations)
       boost::put(boost::edge_weight_t(), g, edge, weight);
     }
   }
-
-  // write_graphviz(std::cout, g, default_writer());
 }
 
 std::set<ID> PersonMatcher::erase(ID id)
@@ -230,7 +228,6 @@ std::set<ID> PersonMatcher::erase(ID id)
 
   removed_persons.insert(orphaned_persons.begin(), orphaned_persons.end());
 
-  check_duplicates(g);
   return removed_persons;
 }
 
