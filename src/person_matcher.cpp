@@ -224,14 +224,14 @@ std::set<ID> PersonMatcher::erase(ID id)
     removed_persons.insert(id);
   }
 
-  auto orphaned_persons = clear_orphans();
+  auto orphaned_persons = clear_orphaned_persons();
 
   removed_persons.insert(orphaned_persons.begin(), orphaned_persons.end());
 
   return removed_persons;
 }
 
-std::set<ID> PersonMatcher::clear_orphans()
+std::set<ID> PersonMatcher::clear_orphaned_persons()
 {
   // remove all orphan vertices and return removed persons
   set<ID> removed_persons;
@@ -254,11 +254,11 @@ std::set<ID> PersonMatcher::clear_orphans()
         if (id_types[person].count(id))
         {
           removed_persons.insert(id);
+          erase_id(id);
+
+          remove_vertex(*v, g);
         }
 
-        erase_id(id);
-
-        remove_vertex(*v, g);
 
 
         // we break and restart the iteration over all the vertices of the graph
@@ -344,7 +344,7 @@ map<FeatureType, ID> PersonMatcher::get_association(ID id) const
 }
 
 
-map<ID, map<FeatureType, ID>> PersonMatcher::get_all_associations() const
+pair<map<ID, map<FeatureType, ID>>, set<Feature>> PersonMatcher::get_all_associations() const
 {
   map<ID, map<FeatureType, ID>> res;
 
@@ -353,7 +353,28 @@ map<ID, map<FeatureType, ID>> PersonMatcher::get_all_associations() const
     res[id] = get_association(id);
   }
 
-  return res;
+  set<Feature> orphan_features;
+
+  for (auto type : { face, body, voice })
+  {
+    for (const auto& id : id_types.at(type))
+    {
+      for (const auto& person_id : id_types.at(person))
+      {
+        bool used = false;
+        if (res[person_id].count(type) && res[person_id][type] == id)
+        {
+          used = true;
+        }
+        if (!used)
+        {
+          orphan_features.insert(make_pair(id, type));
+        }
+      }
+    }
+  }
+
+  return make_pair(res, orphan_features);
 }
 
 string PersonMatcher::get_graphviz() const

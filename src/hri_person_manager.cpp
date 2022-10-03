@@ -33,6 +33,7 @@ const float TIME_TO_DISAPPEAR = 10.;  // secs
 
 enum UpdateType
 {
+  NEW_FEATURE,
   RELATION,
   REMOVE
 };
@@ -177,9 +178,8 @@ public:
         return;
       }
 
-      // ...otherwise, create an anonymous person
-      updates.push_back(
-          { RELATION, id, FeatureType::face, hri::ANONYMOUS, FeatureType::person, 1.0 });
+      // ...otherwise, create a new node in the graph
+      updates.push_back({ NEW_FEATURE, id, FeatureType::face, id, FeatureType::face, 0. });
     }
   }
 
@@ -197,9 +197,8 @@ public:
         return;
       }
 
-      // ...otherwise, create an anonymous person
-      updates.push_back(
-          { RELATION, id, FeatureType::body, hri::ANONYMOUS, FeatureType::person, 1.0 });
+      // ...otherwise, create a new node in the graph
+      updates.push_back({ NEW_FEATURE, id, FeatureType::body, id, FeatureType::body, 0. });
     }
   }
 
@@ -217,9 +216,8 @@ public:
         return;
       }
 
-      // ...otherwise, create an anonymous person
-      updates.push_back(
-          { RELATION, id, FeatureType::voice, hri::ANONYMOUS, FeatureType::person, 1.0 });
+      // ...otherwise, create a new node in the graph
+      updates.push_back({ NEW_FEATURE, id, FeatureType::voice, id, FeatureType::voice, 0. });
     }
   }
 
@@ -231,57 +229,6 @@ public:
 
   void update(ID id1, FeatureType type1, ID id2, FeatureType type2, float confidence)
   {
-    // only id2 can be anonymous (cf onFace/onBody/onVoice above)
-    if (id2 == hri::ANONYMOUS)
-    {
-      // if id1 is 'egbd4', id2 becomes 'anonymous_person_' -> 'anonymous_person_egbd4'
-      // to create a 'unique' anonymous person for corresponding body part
-      id2 += id1;
-
-      anonymous_persons.insert(id1);
-    }
-    else
-    {
-      // Remove previously-anonymous persons if needed
-
-      // id1 is a person associated to id2, and id2 previously had an anonymous person attached?
-      // => remove the anonymous person
-      if ((type1 == FeatureType::person) && anonymous_persons.count(id2) != 0)
-      {
-        ROS_WARN_STREAM("removing anonymous person "
-                        << hri::ANONYMOUS + id2 << " as it is not anonymous anymore");
-        anonymous_persons.erase(id2);
-        auto removed_persons = person_matcher.erase(hri::ANONYMOUS + id2);
-        for (auto const& id : removed_persons)
-        {
-          remove_person(id);
-        }
-      }
-      else if ((type2 == FeatureType::person) && anonymous_persons.count(id1) != 0)
-      {
-        ROS_WARN_STREAM("removing anonymous person "
-                        << hri::ANONYMOUS + id1 << " as it is not anonymous anymore");
-        anonymous_persons.erase(id1);
-        auto removed_persons = person_matcher.erase(hri::ANONYMOUS + id1);
-        for (auto const& id : removed_persons)
-        {
-          remove_person(id);
-        }
-      }
-
-      // id1 & id2 are not persons, id1 associated to id2, both have an anonymous
-      // person attached?
-      // => remove one
-      else if (anonymous_persons.count(id2) != 0 && anonymous_persons.count(id1) != 0)
-      {
-        auto removed_persons = person_matcher.erase(hri::ANONYMOUS + id2);
-        for (auto const& id : removed_persons)
-        {
-          remove_person(id);
-        }
-      }
-    }
-
     person_matcher.update({ { id1, type1, id2, type2, confidence } });
 
     // after an update, we might have new orphaned nodes (if the update sets a confidence of 0)
@@ -379,6 +326,15 @@ public:
 
       switch (update_type)
       {
+        case NEW_FEATURE:
+        {
+          ROS_INFO_STREAM("- New feature: " << id1 << " (" << type1 << ")");
+          // create a single 'orphan' node. At the end of the next update cycle,
+          // this orphan node will be associated to an anonymous_persons if it
+          // is not linked to any other node
+          update(id1, type1, id1, type1, 0.);
+        }
+        break;
         case REMOVE:
         {
           ROS_INFO_STREAM("- Remove ID: " << id1);
@@ -406,7 +362,9 @@ public:
     updates.clear();
     //////////////////////////
 
-    auto person_associations = person_matcher.get_all_associations();
+    auto res = person_matcher.get_all_associations();
+    auto person_associations = res.first;
+    auto orphan_features = res.second;
 
     std_msgs::String graphviz;
     graphviz.data = person_matcher.get_graphviz();
@@ -452,6 +410,63 @@ public:
       // publish the face, body, voice id corresponding to the person
       person->update(face_id, body_id, voice_id, elapsed_time);
     }
+
+    // for each orphan feature, we create an anonymous person
+    for (auto feature : orphan_features)
+    {
+      auto id = feature.first;
+      auto type = feature.second;
+      ID face_id, body_id, voice_id;
+      switch (type)
+      {
+        case face:
+          face_id = id;
+          break;
+        case body:
+          body_id = id;
+          break;
+        case voice:
+          voice_id = id;
+          break;
+        default:
+          assert(false)
+      }
+
+      if (!anonymous_persons.count(id))
+      {
+        anonymous_persons.insert(id1);
+
+        initialize_person(hri::ANONYMOUS + id);
+      }
+      persons[hri::ANONYMOUS + id]->update(face_id, body_id, voice_id, elapsed_time);
+    }
+
+
+    // now, remove the anonymous persons that are not needed anymore
+    for (const auto id : anonymous_persons)
+    {
+      bool found = false;
+      for (auto feature : orphan_features)
+      {
+        if (feature.first == id)
+        {
+          found = true;
+          break;
+        }
+      }
+      if (!found)
+      {
+        // the feature the anonymous person was associated to is not
+        // orphan anymore or does not exist anymore
+        // -> remove the anonymous person
+        ROS_WARN_STREAM("removing anonymous person "
+                        << hri::ANONYMOUS + id2 << " as it is not anonymous anymore");
+        anonymous_persons.erase(id);
+        remove_person(id);
+      }
+    }
+
+
 
     ////////////////////////////////////////////
     // publish the list of currently actively tracked persons

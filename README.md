@@ -27,6 +27,8 @@ algorithm) linking the person to a face/body/voice, and consider them to be
 linked if the resulting probability is above the `humans/match_threshold`
 parameter.
 
+See [doc/ALGORITHM.md](doc/ALGORITHM.md) for details.
+
 Parameters
 ----------
 

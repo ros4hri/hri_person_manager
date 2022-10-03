@@ -49,6 +49,7 @@ typedef boost::graph_traits<Graph>::vertex_descriptor Vertex;
 const Vertex INEXISTANT_VERTEX(-1);
 typedef boost::graph_traits<Graph>::edge_descriptor Edge;
 
+typedef std::pair<hri::ID, hri::FeatureType> Feature;
 typedef std::vector<std::tuple<hri::ID, hri::FeatureType, hri::ID, hri::FeatureType, float>> Relations;
 
 class PersonMatcher
@@ -85,10 +86,10 @@ public:
   std::set<hri::ID> erase(hri::ID id);
 
 
-  /** removes orphaned nodes in the graph, and returns the list of
+  /** removes orphaned persons in the graph, and returns the list of
    * removed *persons*
    */
-  std::set<hri::ID> clear_orphans();
+  std::set<hri::ID> clear_orphaned_persons();
 
   /** clear the whole probabilistic graph.
    */
@@ -100,10 +101,12 @@ public:
    */
   std::map<hri::FeatureType, hri::ID> get_association(hri::ID) const;
 
-  /** returns a map with all the currently known persons, with their
+  /** returns a pair with:
+   *  -a map with all the currently known persons, with their
    * most likely associations to faces/bodies/voices.
+   * - a set of all the remaining features that are not associated to a person
    */
-  std::map<hri::ID, std::map<hri::FeatureType, hri::ID>> get_all_associations() const;
+  std::pair<std::map<hri::ID, std::map<hri::FeatureType, hri::ID>>, std::set<hri::ID>> get_all_associations() const;
 
   /** returns the current likelihood graph in dot format
    */
