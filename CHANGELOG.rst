@@ -2,6 +2,20 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* track /h/{f|b|v}/tracked to automatically create/remove anonymous persons
+* use Boost graph bundled properties to store vertex ids
+  Until now, ID where stored in a separate map. This would cause major issues when
+  a node was removed as Boost would re-assign vertex ids that would not match anymore
+  the ID that we had stored.
+* publish dot graph of humans on /humans/graph
+* more tests -- tests do not pass for a strange reason, need investigating
+* add accessor to set/get a person's alias
+* anonymous_persons can be removed by publishing a candidate match with confidence=0
+* [minor] improved console logging behaviour
+* Contributors: Séverin Lemaignan
+
 0.2.4 (2022-07-12)
 ------------------
 * missing 'break' in a switch leading to mis-handling anonymous persons
