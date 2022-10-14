@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2022-10-14)
+------------------
 * track /h/{f|b|v}/tracked to automatically create/remove anonymous persons
 * use Boost graph bundled properties to store vertex ids
   Until now, ID where stored in a separate map. This would cause major issues when
