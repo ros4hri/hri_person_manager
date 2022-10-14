@@ -309,14 +309,14 @@ map<FeatureType, ID> PersonMatcher::get_association(ID id) const
   {
     for (auto type : { face, body, voice })
     {
-      for (const auto& id : id_types.at(type))
+      for (const auto& _id : id_types.at(type))
       {
-        if (get_vertex(g, id) == vp)
+        if (get_vertex(g, _id) == vp)
         {
           if (d[vp] < best_candidates[type].second)
           {
             // cout << "best candidate: " << kv.first << " " << d[vp] << endl;
-            best_candidates[type] = { id, d[vp] };
+            best_candidates[type] = { _id, d[vp] };
             goto next_vertex;
           }
           else
