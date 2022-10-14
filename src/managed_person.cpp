@@ -33,6 +33,7 @@ ManagedPerson::ManagedPerson(NodeHandle& nh, ID id, tf2_ros::Buffer& tf_buffer,
 
 ManagedPerson::~ManagedPerson()
 {
+  ROS_DEBUG_STREAM("Closing all topics related to person <" << _id);
   face_id_pub.shutdown();
   body_id_pub.shutdown();
   voice_id_pub.shutdown();
