@@ -6,320 +6,255 @@ import itertools
 from collections import Counter
 import random
 
-PERSON = "person"
-BODY = "body"
-FACE = "face"
-VOICE = "voice"
+PERSON = 0b0001
+FACE = 0b0010
+VOICE = 0b0100
+BODY = 0b1000
+
 
 LIKELIHOOD_THRESHOLD = 0.4
 
 NO_FEATURE = "_"
 
-G = nx.Graph()
+
+def next_anon_id():
+    return "anon_" + "".join(random.choices("abcdfghijklmnopqrstuvwxyz", k=5))
 
 
-def rand_id():
-    return "".join(random.choices("abcdfghijklmnopqrstuvwxyz", k=5))
+def fully_connect_persons(G, mask, likelihood_threshold):
+    G = nx.Graph(G)  # unfreeze the graph
+    if not (mask & PERSON):  # no person in this subgraph. Add anonymous one
 
+        id = next_anon_id()
 
-def cost_path(p):
-
-    if not p:
-        return 0.0
-
-    n1, n2 = p[-1]
-
-    return cost_path(p[:-1]) * (1 + G[n1][n2]["weight"])
-
-
-def add_anonymous_persons():
-    for n in list(G.nodes):
-        if G.nodes[n]["type"] != PERSON:
-            id = "anon_" + rand_id()
+        for n in list(G.nodes):
             G.add_edge(
                 n,
                 id,
-                weight=transform_weights(LIKELIHOOD_THRESHOLD),
-                # weight=transform_weights(0),
-                likelihood=LIKELIHOOD_THRESHOLD,
-                # likelihood=0,
+                weight=likelihood2weights(likelihood_threshold),
+                likelihood=likelihood_threshold,
+                log_weight=log_transform_weights(likelihood_threshold),
             )
-            G.nodes[id].update({"type": PERSON, "penalty": 1})
 
+        G.nodes[id].update({"type": PERSON})
+        return G, []
 
-def find_permissible_paths(n1, n2):
-    if G.nodes[n1]["type"] == G.nodes[n2]["type"]:
-        return []
+    else:
 
-    paths = nx.all_simple_edge_paths(G, source=n1, target=n2)
-    # paths = nx.all_shortest_paths(G, source=n1, target=n2, weight="weight")
+        person = None
 
-    permissible_paths = []
-    for p in paths:
-        if len(p) == 1:
-            permissible_paths.append((p, cost_path(p)))
-
-        node_types = set()
-        permissible = True
-        for e in p:
-            u, v = e
-            if (
-                G.nodes[u]["type"] in node_types  # a type we've already seen? forbidden
-                or G.nodes[u]["type"]
-                == G.nodes[n2]["type"]  # the type of the destination? forbidden
-            ):
-                permissible = False
+        # get the person node
+        for n in G.nodes:
+            if G.nodes[n]["type"] == PERSON:
+                person = n
                 break
 
-            node_types.add(G.nodes[u]["type"])
+        edges_to_update = []
 
-        if permissible:
-            permissible_paths.append((p, cost_path(p)))
+        for n in G.nodes:
+            if n == person:
+                continue
 
-    return permissible_paths
+            if (n, person) in G.edges and not G.edges[(n, person)]["computed"]:
+                # already connected
+                continue
 
+            # if existing computed edge, check if we need to update the weight
+            if (n, person) in G.edges:
+                tmpG = nx.Graph(G)
+                tmpG.remove_edge(n, person)
+                if not nx.is_connected(tmpG):
+                    continue
+                G.remove_edge(n, person)
 
-def best_permissible_path(n1, n2):
-    paths = find_permissible_paths(n1, n2)
-    if not paths:
-        return None
-    if len(paths) == 1:
-        return paths[0]
+            length = nx.dijkstra_path_length(G, n, person, weight="log_weight")
+            likelihood = back_log_transform_weights(length)
 
-    return sorted(paths, key=lambda x: x[1])[0]
+            if likelihood > likelihood_threshold:
 
+                edges_to_update.append((n, person, likelihood))
 
-def path_to_edge_path(p):
-    prev = p[0]
-    edge_path = []
-    for n in p[1:]:
-        edge_path.append((prev, n))
-    return edge_path
+                G.add_edge(
+                    n,
+                    person,
+                    weight=likelihood2weights(likelihood),
+                    likelihood=likelihood,
+                    log_weight=log_transform_weights(likelihood),
+                    computed=True,
+                )
 
-
-def edge_path_to_path(p):
-    path = []
-
-    for u, _ in p:
-        path.append(u)
-
-    path.append(p[-1][1])
-    return path
-
-
-def possible_person_associations(p):
-
-    faces = [k for k, attr in G.nodes.items() if attr["type"] == FACE]
-    bodies = [k for k, attr in G.nodes.items() if attr["type"] == BODY]
-    voices = [k for k, attr in G.nodes.items() if attr["type"] == VOICE]
-
-    permissible_features = {
-        "face": {NO_FEATURE: ([], 0)},
-        "body": {NO_FEATURE: ([], 0)},
-        "voice": {NO_FEATURE: ([], 0)},
-    }
-
-    for f in faces:
-        path = best_permissible_path(p, f)
-        if path:
-            permissible_features["face"][f] = path
-
-    for f in bodies:
-        path = best_permissible_path(p, f)
-        if path:
-            permissible_features["body"][f] = path
-
-    for f in voices:
-        path = best_permissible_path(p, f)
-        if path:
-            permissible_features["voice"][f] = path
-
-    # for t, v in permissible_features.items():
-    #    print(t)
-    #    for n, p in v.items():
-    #        print("%s -> %s" % (n, p))
-
-    combinations = list(
-        itertools.product(
-            permissible_features["face"].items(),
-            permissible_features["body"].items(),
-            permissible_features["voice"].items(),
-        )
-    )
-
-    combinations_likelihood = []
-
-    for combination in combinations:
-        likelihood = 0.0
-        nodes_in_combination_graph = {}
-
-        valid_combination = True
-
-        for item in combination:
-            feature, path_cost = item
-            path, cost = path_cost
-
-            if feature != NO_FEATURE:
-
-                # ensure that all the nodes required to reach that feature are
-                # present in the combination (otherwise, we could create
-                # 'disconnected' association)
-                for u, v in path:
-                    t = G.nodes[v]["type"]
-                    t_idx = list(permissible_features.keys()).index(t)
-                    if combination[t_idx][0] != v:
-                        valid_combination = False
-                        break
-
-                for node in edge_path_to_path(path):
-                    nodes_in_combination_graph.setdefault(
-                        G.nodes[node]["type"], set()
-                    ).add(node)
-
-                likelihood += backtransform_weights(cost)
-
-        # the graph spanned by the selected features in the combination can not contain more than one node of each type
-        for _, nodes in nodes_in_combination_graph.items():
-            if len(nodes) > 1:
-                valid_combination = False
-
-        if valid_combination:
-            combinations_likelihood.append(([i[0] for i in combination], likelihood))
-
-    return sorted(combinations_likelihood, key=lambda x: x[1], reverse=True)
+        return G, edges_to_update
 
 
-def maximise_total_likelihood(candidate_combinations):
-    full_combinations = itertools.product(*(candidate_combinations.values()))
-
-    full_combinations_with_likelihood = []
-
-    for candidate in full_combinations:
-
-        valid = True
-
-        # if the same feature is used more than once, this is not a viable
-        # overall set of association
-        used_features = []
-        for c in candidate:
-            used_features += c[0]
-        counted = Counter(used_features)
-        for f, c in counted.items():
-            if f != NO_FEATURE and c > 1:
-                valid = False
-                break
-
-        if not valid:
-            continue
-
-        combos = {p: candidate[i] for i, p in enumerate(candidate_combinations.keys())}
-        total_likelihood = sum([p[1] for p in candidate])
-
-        full_combinations_with_likelihood.append((combos, total_likelihood))
-
-    return sorted(full_combinations_with_likelihood, key=lambda x: x[1], reverse=True)
-
-
-def prune_unlikely_connections():
+def prune_unlikely_connections(G, likelihood_threshold):
+    resG = nx.Graph(G)
     for u, v, l in list(G.edges.data("likelihood")):
-        if l < LIKELIHOOD_THRESHOLD:
+        if l < likelihood_threshold:
             print(
                 "Pruning edge %s <-> %s due to likelihood l=%s below threshold"
                 % (u, v, l)
             )
-            G.remove_edge(u, v)
+            resG.remove_edge(u, v)
+    return resG
 
 
-def algorithm():
+def build_partitions(nodes, nb_features=4):
 
-    print("############ STEP 1 ################")
-    print("##                                ##")
-    print("##  Prune unlikely connections    ##")
-    print("##                                ##")
-    print("####################################")
-    prune_unlikely_connections()
+    # print("get_partitions input nodes: %s" % nodes)
+    if len(nodes) == 1:
+        n, t = nodes[0]
+        # print("---> return partitions: " + str([[([n], t)]]))
+        return [[([n], t)]]
 
-    print("############ STEP 2 ################")
-    print("##                                ##")
-    print("##  Add default anonymous persons ##")
-    print("##  to all features               ##")
-    print("##                                ##")
-    print("####################################")
-    add_anonymous_persons()
+    head, rest = nodes[0], nodes[1:]
 
-    print("############ STEP 3 ################")
-    print("##                                ##")
-    print("##  Most likelihood associations  ##")
-    print("##                                ##")
-    print("####################################")
-    persons = [k for k in G.nodes if G.nodes[k]["type"] == PERSON]
-    for p in persons:
-        print("\nPossible associations for person %s:" % p)
-        combinations_likelihood = possible_person_associations(p)
+    head_node, head_type = head
 
-        for i in combinations_likelihood:
-            print(i)
+    partitions = build_partitions(rest, nb_features)
 
-    print("\n\nAssociations combinations\n")
-    candidate_combinations = {p: possible_person_associations(p) for p in persons}
-    best = maximise_total_likelihood(candidate_combinations)
+    updated_partitions = []
 
-    print(str(len(best)) + " viable combinations of associations\n\n")
+    for p in partitions:
 
-    # for i in best:
-    #    print(i)
+        for i, subgraph in enumerate(p):
+            g, mask = subgraph
+            if (
+                len(g) < nb_features
+            ):  # sub-graph does not contain more nodes than features (otherwise, at least one feature is duplicated)
+                if not (
+                    mask & head_type
+                ):  # sub-graph does not already contains this type of node
+                    new_partition = p[:]
+                    new_partition[i] = (g + [head_node], mask | head_type)
+                    # print("Add partition " + str(new_partition))
+                    updated_partitions.append(new_partition)
 
-    print("\nMost likely associations:")
-    for kv in best[0][0].items():
-        print("  - Person %s: %s" % kv)
+        # print("Add partition " + str(p + [([head_node], head_type)]))
+        updated_partitions.append(p + [([head_node], head_type)])
 
-    groups = [[p] + g[0] for p, g in best[0][0].items()]
-
-    # remove dummy nodes
-    groups = [[x for x in g if x != NO_FEATURE] for g in groups]
-
-    # remove groups which contain only one nodes, as that node would be an anonymous person (or a person not associated to any feature)
-    nodes_to_remove = [x for g in groups for x in g if len(g) == 1]
-    for n in nodes_to_remove:
-        if G.nodes[n]["type"] != PERSON:
-            print("ERROR! Feature %s not associated to any person!" % n)
-        G.remove_node(n)
-
-    groups = [g for g in groups if len(g) > 1]
-
-    for i, g in enumerate(groups):
-        print("Group %s: %s" % (i, g))
-        for n in g:
-            G.nodes[n].update({"group": i})
-
-    print("############ STEP 4 ################")
-    print("##                                ##")
-    print("##      Creation of missing       ##")
-    print("##      direct connections        ##")
-    print("##                                ##")
-    print("####################################")
-
-    print("\n\nTODO!!\n\n")
+    # print("---> return partitions: " + str(updated_partitions))
+    return updated_partitions
 
 
-#
-#    print("############ STEP 3 ################")
-#    print("##                                ##")
-#    print("##      Anonymous persons         ##")
-#    print("##                                ##")
-#    print("####################################")
-#
-#    print("\n\nTODO!!\n\n")
-#
+def get_partitions(G, nb_features=4):
+
+    nodes = [(n, G.nodes[n]["type"]) for n in G.nodes]
+    raw_partitions = build_partitions(nodes, nb_features)
+
+    print("Got %d raw partitions" % len(raw_partitions))
+
+    viable_partitions = []
+    for p in raw_partitions:
+        viable = True
+        for g in p:
+            if not nx.is_connected(G.subgraph(g[0])):
+                viable = False
+                break
+        if viable:
+            viable_partitions.append(p)
+
+    print(
+        "Got %d viable partitions (made of connected graphs)" % len(viable_partitions)
+    )
+
+    return viable_partitions
 
 
-def transform_weights(w):
+def partition_affinity(G, partition):
+    """The graph partition 'affinity' is the sum of the likelihood of associations accross all the partition's subgraphs.
+
+    It is computed by:
+
+    - for each each subgraph:
+        - assinging weights to each edges by taking the opposite of the likelihoods of associations
+        - finding the minimum spanning tree
+        - summing the weights of every edge in the subgraph
+    - then, summing the weights across all subgraphs
+    - taking the opposite of the result to get the final affinitiy
+    """
+
+    affinity = 0
+
+    for g in partition:
+        subG = nx.minimum_spanning_tree(G.subgraph(g[0]))
+
+        affinity += sum([subG.edges[e]["likelihood"] for e in subG.edges])
+
+    return affinity
+
+
+def algorithm(G, likelihood_threshold=LIKELIHOOD_THRESHOLD):
+
+    G = prune_unlikely_connections(G, likelihood_threshold)
+
+    full_partition = []
+
+    for subG_nodes in nx.connected_components(G):
+
+        subG = G.subgraph(subG_nodes)
+
+        # print("Input edges: %s" % subG.edges)
+
+        # get all viable partitions of the graph
+        partitions = get_partitions(subG)
+
+        # only keep the most compact partitions (ie, partitions with the minimal number of subgraph)
+        min_len = min([len(p) for p in partitions])
+        partitions = filter(lambda x: len(x) == min_len, partitions)
+        partitions = sorted(
+            partitions, key=lambda x: partition_affinity(subG, x), reverse=True
+        )
+
+        # for p in partitions:
+        #    print(p)
+        #    print(partition_affinity(subG, p))
+
+        full_partition += partitions[0]
+
+    if full_partition:
+
+        resG = nx.Graph()
+
+        for nodes in full_partition:
+            subG = G.subgraph(nodes[0])
+            subG, edges_to_update = fully_connect_persons(
+                subG, mask=nodes[1], likelihood_threshold=likelihood_threshold
+            )
+            resG.update(subG)
+
+            for s, t, l in edges_to_update:
+                if (s, t) in G.edges:
+                    G.remove_edge(s, t)
+
+                G.add_edge(
+                    s,
+                    t,
+                    likelihood=l,
+                    weight=likelihood2weights(l),
+                    log_weight=log_transform_weights(l),
+                    computed=True,
+                )
+
+        return G, resG
+    else:
+        return G, nx.Graph()
+
+
+def likelihood2weights(v):
+    return round(1 - v, 3)
+
+
+def weights2likelihood(v):
+    return likelihood2weights(v)
+
+
+def log_transform_weights(w):
     if w <= 0:
         return 1000
     return math.log(1 / w)
 
 
-def backtransform_weights(w):
+def back_log_transform_weights(w):
     if w > 900:
         return 0
     return round(1 / math.exp(w), 3)
@@ -336,76 +271,90 @@ def get_color(type):
         return "purple"
 
 
-nodes = {
-    "body3": {"type": "body"},
-    "body2": {"type": "body"},
-    "person2": {"type": "person"},
-    "face1": {"type": "face"},
-    "person1": {"type": "person"},
-    "body1": {"type": "body"},
-    "face2": {"type": "face"},
-    "voice2": {"type": "voice"},
-    "voice1": {"type": "voice"},
-    "voice3": {"type": "voice"},
-}
+def plot(G, title="Network", show=True):
 
-nodes_color = [get_color(nodes[n]["type"]) for n in nodes.keys()]
+    fig, ax = plt.subplots(figsize=(12, 12))
 
-for a, b, w in [
-    ("body3", "person2", 0.7),
-    ("person2", "face1", 0.9),
-    ("face1", "body2", 0.8),
-    ("face1", "person1", 0.2),
-    ("face1", "body1", 0.1),
-    ("voice1", "body2", 0.5),
-    ("voice3", "body3", 0.5),
-    ("person1", "face2", 0.7),
-    ("person1", "body2", 0.81),
-    ("body1", "voice2", 0.9),
-    ("face2", "body1", 0.6),
-]:
-    G.add_edge(a, b, weight=transform_weights(w), likelihood=w, computed=False)
+    pos = nx.spring_layout(G, weight="likelihood", seed=7)
 
+    # nodes
+    nx.draw_networkx_nodes(G, pos, nodelist=G.nodes)
+    nx.draw_networkx_labels(G, pos)
+    nx.draw_networkx_edges(G, pos)
 
-for n, attr in nodes.items():
-    G.nodes[n].update(attr)
-    G.nodes[n]["penalty"] = 0
+    # edge weight labels
+    edge_labels = dict(
+        [
+            (e, weights2likelihood(w))
+            for e, w in nx.get_edge_attributes(G, "weight").items()
+        ]
+    )
+
+    nx.draw_networkx_edge_labels(G, pos, edge_labels)
+
+    # Resize figure for label readibility
+    ax.margins(0.1, 0.05)
+    fig.tight_layout()
+    plt.axis("off")
+    plt.title(title)
+
+    if show:
+        plt.show()
 
 
-###########
+if __name__ == "__main__":
 
-algorithm()
+    G = nx.Graph()
 
-######################################################################
-######################################################################
-######################################################################
-######################################################################
+    for a, b, l in [
+        #        ("body3", "person2", 0.7),
+        #        ("person2", "face1", 0.9),
+        #        ("face1", "body2", 0.8),
+        #        ("face1", "person1", 0.2),
+        #        ("face1", "body1", 0.1),
+        #        #        ("voice1", "body2", 0.5),
+        #        #        ("voice3", "body3", 0.5),
+        #        ("person1", "face2", 0.7),
+        #        ("person1", "body2", 0.81),
+        #        ("body1", "voice2", 0.9),
+        #        ("face2", "body1", 0.6),
+        ("f1", "p1", 0.8),
+        ("f1", "p2", 0.7),
+        ("f1", "p3", 0.5),
+        ("f2", "p4", 0.8),
+        ("f2", "p2", 0.65),
+        ("b1", "f1", 0.8),
+        ("b1", "f2", 0.75),
+        ("b2", "f2", 0.7),
+        ("b2", "f1", 0.65),
+        ("v1", "f1", 0.6),
+        ("v1", "f2", 0.58),
+        ("v3", "f1", 0.2),
+        ("v3", "f2", 0.21),
+    ]:
+        G.add_edge(
+            a,
+            b,
+            weight=likelihood2weights(l),
+            likelihood=l,
+            log_weight=log_transform_weights(l),
+            computed=False,
+        )
 
-fig, ax = plt.subplots(figsize=(12, 12))
+    for n in G.nodes:
+        if n.startswith("p"):
+            G.nodes[n].update({"type": PERSON})
 
+        if n.startswith("b"):
+            G.nodes[n].update({"type": BODY})
 
-pos = nx.spring_layout(G, weight="likelihood", seed=7)
+        if n.startswith("v"):
+            G.nodes[n].update({"type": VOICE})
 
-# nodes
-nx.draw_networkx_nodes(
-    G, pos, nodelist=G.nodes, node_color=[G.nodes[n]["group"] for n in G.nodes]
-)
-nx.draw_networkx_labels(G, pos)
-nx.draw_networkx_edges(G, pos)
+        if n.startswith("f"):
+            G.nodes[n].update({"type": FACE})
 
-# edge weight labels
-edge_labels = dict(
-    [
-        (e, backtransform_weights(w))
-        for e, w in nx.get_edge_attributes(G, "weight").items()
-    ]
-)
+    ######################
 
-nx.draw_networkx_edge_labels(G, pos, edge_labels)
-
-
-# Resize figure for label readibility
-ax.margins(0.1, 0.05)
-fig.tight_layout()
-plt.axis("off")
-plt.show()
+    _, associations = algorithm(G)
+    plot(associations)

@@ -35,14 +35,14 @@ the `/humans/candidate_matches` topic). Together they span a grap called the
 *person features graph*.
 
 **DEFINITION 4**: A *permissible path* between two nodes is a path that does not
-contain more than one node of each type. The likelihood of that path is the
-product of the likelihoods of each connection along that path.
+contain more than one node of each type (including the start and end nodes). The
+likelihood of that path is computed as described in Alg. *likelihood of a path*.
 
-**DEFINITION 5**: Nodes can be *associated* to each other, as long as:
-- they are not associated to a node of the same type
-- they are associated to at most *one* node of each type
+**DEFINITION 5**: A node can be *associated* to  another one, as long as:
+- it is not already associated to a node of the same type
 - there exists a permissible path between the two nodes
-- the likelihood of the path is above the configured *likelihood threshold*
+- the likelihood of the resulting path is superior to the configured *likelihood
+  threshold*
 
 **DEFINITION 6**: the *person associations total likelihood* of a person is the sum of
 the likehoods of the paths connecting the person to each of its features.
@@ -50,20 +50,23 @@ the likehoods of the paths connecting the person to each of its features.
 **REQUIREMENT 1**: associations between persons and their features must be chosen so
 that they maximize the sum of all *person associations total likelihoods*.
 
-**REQUIREMENT 2**: detected features that are not associated to a person
-must be associated to temporary 'anonymous' persons.
-
-**REQUIREMENT 3**: if two features are associated (eg a face and a body), they
-should also be associated to the same anonymous person.
-
-**REQUIREMENT 4**: at anytime, every features must be associated to exactly one
+**REQUIREMENT 2**: at anytime, every features must be associated to exactly one
 person (anonymous or not).
 
-**REQUIREMENT 5**: associations coming from indirect paths (eg `A` associated to `C`
-because `A` connected to `B` and `B` connected to `C`) should be maintained iff the likelihood of the association between
-the two nodes was higher that the likelihood threshold at the point the path was
-broken. The likelihood of that association will remain constant until the
-association is removed (because one of the two nodes disappeared).
+**REQUIREMENT 3**: as a consequence of **REQUIREMENT 2**, following the
+optimisation process, detected features that are not associated to a person must
+be associated to temporary 'anonymous' persons. This should still respect the
+requirements of **DEFINITION 5**: if two features are associated (eg a face and
+a body), they must be associated to the same anonymous person.
+
+**REQUIREMENT 4**: associations wth indirect paths (eg `A` associated to
+`C` because `A` connected to `B` and `B` connected to `C`) should be maintained
+in case of the path is broken (eg `B` disappears) *if and only if* the
+likelihood of the association between the two nodes is superior to the
+likelihood threshold when the path is broken. In that case, a new *direct*
+association must be created and and the likelihood of that association
+will remain constant until the association is removed (because one of the two
+nodes disappeared).
 
 
 # Algorithms
@@ -71,8 +74,7 @@ association is removed (because one of the two nodes disappeared).
 ## Alg.1: Likelihood of a path 
 
 Be $N$ the sequence of nodes leading from the start to the end of the path;
-$l_i$ the likelihood of $n_i$ being
-connected to $n_(i+1)$.
+$l_i$ the likelihood of $n_i$ being connected to $n_(i+1)$.
 
 The likelihood of the sub-path $L_i$ from the start to node $i$ is computed as:
 
@@ -82,6 +84,41 @@ $L_(i+1)=L_(i) + L_(i) * l_i$
 The likelihood of the whole path is therefore:
 
 $L = L_{|N|}$
+
+This definition of the path's likelihood strongly favours longer paths over
+shorter ones, which avoid fragmentation.
+
+### Example
+
+
+``` mermaid
+graph LR
+
+body3 ---|0.7| person2
+person2 ---|0.9| face1
+face1 ---|0.8| body2
+face1 ---|0.2| person1
+person1 ---|0.81| body2
+```
+
+The likelihood of the path from `body3` to `body3` is:
+
+$L = 0.7 + 0.7 * 0.9 + 0.7 * 0.9 * 0.8 = 1.834$
+
+The likelihood of the path from `body3` to `person1` is:
+
+$L = 0.7 + 0.7 * 0.9 + 0.7 * 0.9 * 0.2 = 1.456$
+
+There are two paths from `body2` to `person1`:
+
+`body2 -> person1`:
+
+$L = 0.81$
+
+`body2 -> face1 -> person1`:
+
+$L = 0.8 + 0.8 * 0.2 = 0.96$
+
 
 ## Alg.2: Best permissible path
 
@@ -93,33 +130,57 @@ The *best permissible path* between two nodes is computed as follow:
     1. compute the likelihood of each remaining path using Alg.1
 1. return the path with the highest likelihood
 
+### Example
+
+Based on the previous example, and assuming a likelihood threshold of 0.1,
+`body2 -> face1 -> person1` would be the best permissible path between `body2`
+and `person1`.
+
+However, with a likelihood threshold of 0.4, this path is not permissible
+anymore (as the likelihood of `face1 - person1` is 0.2). In that case, the
+direct path `body2 -> person1` would be the best permissible path.
+
 ## Main algorithm
 
 1. for each feature *not yet directly connected to a person*, create a new
-   anonymous person and connect that anonymous person to the feature with a likelihood equal to
-   the likelihood threshold.
+   anonymous person and associate that anonymous person to the feature with a
+   likelihood equal to the likelihood threshold.
+
 1. for each person, compute all permissible person <-> features associations:
+
     1. for each of the existing {face|body|voice} features, calculate the best
        permissible path between the person and the feature
+
     1. compute the set of combinations of permissible path for each features,
        **also including the possible absence of a given feature** in the
-       association. For
-       instance: if there exists paths to two faces and two bodies, generate the
-       set of the four possible combinations of faces/bodies as well as the
-       possibilities to have only one face and no associated body, or one body and
-       no associated face. Thus, it would generate 8 possible combinations.
+       association.
+
+       *Example*: if there exists paths between a person and two
+       faces and two bodies, generate the set of the four possible combinations
+       of faces/bodies as well as the possibilities to have only one face and no
+       associated body, or one body and no associated face. Thus, it would
+       generate 8 possible combinations.
+
     1. filter out combinations that are not possible: the graph spanned by the
        selected features when connected to the person can not contain more than
        one node of each node type
+
     1. for each remaining valid combination, compute the total likelihood by
-       summing the likelihoods of each features
+       summing the likelihoods of the paths to each features
+
 1. maximize the overall likelihood of associations across persons
-    1. generate the set of combinations of permissible associations across persons
+
+    1. generate the set of combinations of permissible associations across every
+       persons
+
     1. filter out combinations that would result in a feature being associated to
        more that one person
+
     1. calculate the overall likelihood by summing across all persons their
        associations likelihood
+
     1. return the highest one
+
 1. for each resulting association, add a direct connection between the person
    and each of its indirectly connected features iff the likelihood of that
    connection is above the threshold (the likelihood being equal to the product
