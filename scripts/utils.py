@@ -293,6 +293,4 @@ if __name__ == "__main__":
     import sys
 
     with open(sys.argv[1], "r") as f:
-        tests = test_file_parser(f)
-
-    print(tests)
+        test_file_parser(f)

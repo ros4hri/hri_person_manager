@@ -1,4 +1,12 @@
 
+Notes:
+
+- anonymous nodes must start with `anon`
+- the main graph is kept and updated across tests, unless a line 'RESET GRAPH'
+  is found
+
+THRESHOLD: 0.4
+
 # Step 1: one independent feature
 
 ## INPUT
@@ -35,8 +43,8 @@ body1
 ``` mermaid
 graph LR
 
-face1
 body1
+face1
 ```
 
 ## OUTPUT
@@ -48,7 +56,7 @@ face1 ---|0.4| anon1
 body1 ---|0.4| anon2
 ```
 
-# Step 3: association between these features
+# Step 3: association between these features -- one anonymous person should disappear
 
 ## INPUT
 
@@ -234,7 +242,7 @@ graph LR
 face3 ---|0.8| body1
 face3 ---|0.6| person1
 body1 ---|0.48| person1
-face4 ---|0.4| anon3
+face4 ---|0.4| anon1
 ```
 
 # Step 10: new face being recognised
@@ -414,7 +422,7 @@ b2 ---|0.56| p4
 
 p2
 p3
-v3 ---|0.4| anon1
+v3 ---|0.4| anon2
 ```
 
 
@@ -461,7 +469,7 @@ b2 ---|0.56| p4
 
 p2
 p3
-v3 ---|0.4| anon1
+v3 ---|0.4| anon2
 ```
 
 
@@ -519,9 +527,9 @@ person2 ---|0.9| face1
 voice3 ---|0.5| body3
 
 
-anon1 ---|0.4| body1
+anon3 ---|0.4| body1
 body1 ---|0.9| voice2
-voice2 ---|0.4| anon1
+voice2 ---|0.4| anon3
 
 body2 ---|0.81| person1
 voice1 ---|0.5| body2
@@ -548,7 +556,6 @@ person1 ---|0.405| voice1
 body1 ---|0.9| voice2
 face2 ---|0.6| body1
 voice3 ---|0.5| body3
-voice1
 ```
 
 ## OUTPUT
@@ -556,7 +563,7 @@ voice1
 ``` mermaid
 graph LR
 
-voice1 ---|0.4| anon1
+voice1 ---|0.4| anon3
 
 body3 ---|0.7| person2
 person2 ---|0.9| face1
@@ -602,9 +609,9 @@ voice1 ---|0.6| body4
 ``` mermaid
 graph LR
 
-%% body4 should be connected to existing anon1
-voice1 ---|0.4| anon1
-body4 ---|0.4| anon1
+%% body4 should be connected to existing anon3
+voice1 ---|0.4| anon3
+body4 ---|0.4| anon3
 voice1 ---|0.6| body4
 
 body3 ---|0.7| person2
@@ -618,4 +625,4 @@ body1 ---|0.6| face2
 body1 ---|0.42| person1
 ```
 
-
+RESET GRAPH

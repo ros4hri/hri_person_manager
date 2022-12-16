@@ -34,6 +34,8 @@ add_executable(${PROJECT_NAME}_node
     src/person_matcher.cpp
     src/managed_person.cpp)
 
+
+
 ## Rename C++ executable without prefix
 set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")
 
@@ -45,6 +47,12 @@ target_link_libraries(${PROJECT_NAME}_node
    ${catkin_LIBRARIES}
 )
 
+add_executable(mermaid_test 
+    src/mermaid.cpp
+    src/person_matcher.cpp)
+target_link_libraries(mermaid_test
+   ${catkin_LIBRARIES}
+)
 
 ###########################################################
 # Tests

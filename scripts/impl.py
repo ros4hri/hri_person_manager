@@ -142,6 +142,8 @@ def get_partitions(G, nb_features=4):
     raw_partitions = build_partitions(nodes, nb_features)
 
     print("Got %d raw partitions" % len(raw_partitions))
+    # for p in raw_partitions:
+    #    print("- %s" % len(p))
 
     viable_partitions = []
     for p in raw_partitions:
@@ -156,6 +158,8 @@ def get_partitions(G, nb_features=4):
     print(
         "Got %d viable partitions (made of connected graphs)" % len(viable_partitions)
     )
+    # for p in viable_partitions:
+    #    print("- %s" % len(p))
 
     return viable_partitions
 
@@ -166,11 +170,10 @@ def partition_affinity(G, partition):
     It is computed by:
 
     - for each each subgraph:
-        - assinging weights to each edges by taking the opposite of the likelihoods of associations
-        - finding the minimum spanning tree
-        - summing the weights of every edge in the subgraph
-    - then, summing the weights across all subgraphs
-    - taking the opposite of the result to get the final affinitiy
+        - finding the 'maximum likelihood' spanning tree, ie the minimum
+          spanning tree using as edge weight w=1-likelihood
+        - summing the likelihoods of every edge in the minimum spanning tree
+    - then, summing it over all subgraphs
     """
 
     affinity = 0
