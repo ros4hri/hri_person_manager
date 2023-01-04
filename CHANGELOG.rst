@@ -2,6 +2,37 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
+Major rewrite of the core algorithm.
+
+General algorithm description:
+
+Consider a connected graph containing red, blue, yellow and green nodes,
+connected by weighted edges. Write a python script that (1) generates
+all possible graph partitions where each subgraph is connected and
+contains at most one node of each color, (2) select the partitions with
+the least subgraphs, (3) amongst these, select the partition that
+minimize the total sum of weights in each subgraph's minimum spanning
+tree.
+
+* color the graphviz output per association
+* minor
+* fix/update the unit tests
+* publish the timestamps for the list of known/tracked persons
+* minor UX to the show-graph script
+* clean up + minor optimisation/bugfix in the ROS node
+* add mermaid-based tests to the unit-test suite
+* add logic to re-use anonymous person ID when same features are visible
+* C++ impl complete, based on boost::graph
+  all mermaid tests pass with C++ version
+  Note to myself: I *hate* boost::graph.
+* Python impl complete, all mermaid-based tests pass
+* add small utility to parse mermaid syntax in python graphs
+* WIP on my algorithm, Python impl
+* Contributors: Séverin Lemaignan
+
 0.3.0 (2022-10-14)
 ------------------
 * track /h/{f|b|v}/tracked to automatically create/remove anonymous persons
