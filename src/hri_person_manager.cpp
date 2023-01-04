@@ -71,9 +71,10 @@ public:
     person_matcher.reset();
 
     persons.clear();
+    previously_known.clear();
     previously_tracked.clear();
-    anonymous_persons.clear();
 
+    // publish an empty list of tracked/known persons
     hri_msgs::IdsList persons_list;
     tracked_persons_pub.publish(persons_list);
     known_persons_pub.publish(persons_list);
@@ -96,9 +97,9 @@ public:
 
     id2 = match->id2;
 
-    if (id2.empty() && match->id2_type != hri_msgs::IdsMatch::UNSET)
+    if (id2.empty())
     {
-      ROS_ERROR_STREAM("received an empty id for id2, with type set to " << match->id2_type);
+      ROS_ERROR("received an empty id for id2");
       return;
     }
 
@@ -149,11 +150,6 @@ public:
         type2 = FeatureType::voice;
         break;
 
-      case hri_msgs::IdsMatch::UNSET:
-        type2 = FeatureType::person;
-        id2 = hri::ANONYMOUS;
-        break;
-
       default:
         ROS_ERROR_STREAM("received an invalid type for id2: " << match->id2_type);
         return;
@@ -172,13 +168,14 @@ public:
     if (auto face_ptr = face.lock())
     {
       id = face_ptr->id();
-      // if already associated, do nothing
-      if (associated_faces.count(id) != 0)
+
+      if (id.size() == 0)
       {
+        ROS_ERROR("got invalid new face: empty id! skipping");
         return;
       }
 
-      // ...otherwise, create a new node in the graph
+      // create a new node in the graph
       updates.push_back({ NEW_FEATURE, id, FeatureType::face, id, FeatureType::face, 0. });
     }
   }
@@ -191,13 +188,13 @@ public:
     {
       id = body_ptr->id();
 
-      // if already associated, do nothing
-      if (associated_bodies.count(id) != 0)
+      if (id.size() == 0)
       {
+        ROS_ERROR("got invalid new body: empty id! skipping");
         return;
       }
 
-      // ...otherwise, create a new node in the graph
+      // create a new node in the graph
       updates.push_back({ NEW_FEATURE, id, FeatureType::body, id, FeatureType::body, 0. });
     }
   }
@@ -210,13 +207,13 @@ public:
     {
       id = voice_ptr->id();
 
-      // if already associated, do nothing
-      if (associated_voices.count(id) != 0)
+      if (id.size() == 0)
       {
+        ROS_ERROR("got invalid new voice: empty id! skipping");
         return;
       }
 
-      // ...otherwise, create a new node in the graph
+      // create a new node in the graph
       updates.push_back({ NEW_FEATURE, id, FeatureType::voice, id, FeatureType::voice, 0. });
     }
   }
@@ -224,66 +221,42 @@ public:
 
   void onFeatureLost(ID id)
   {
-    updates.push_back({ REMOVE, id, FeatureType::person, id, FeatureType::person, 0. });
+    if (id.size() == 0)
+    {
+      ROS_ERROR("a feature was removed, but empty id! skipping");
+      return;
+    }
+
+    updates.push_back({ REMOVE, id, FeatureType::invalid, id, FeatureType::invalid, 0. });
   }
 
-  void update(ID id1, FeatureType type1, ID id2, FeatureType type2, float confidence)
-  {
-    person_matcher.update({ { id1, type1, id2, type2, confidence } });
-  }
 
   void initialize_person(ID id)
   {
     persons[id] = make_shared<ManagedPerson>(_nh, id, tfBuffer, _reference_frame);
 
-    publishKnownPersons();
+    publish_known_persons();
   }
 
-  void publishKnownPersons()
+  void publish_known_persons()
   {
     // publish an updated list of all known persons
     hri_msgs::IdsList persons_list;
+    vector<ID> known;
 
     for (auto const& kv : persons)
     {
       persons_list.ids.push_back(kv.first);
+      known.push_back(kv.first);
     }
 
-    known_persons_pub.publish(persons_list);
+    if (known != previously_known)
+    {
+      known_persons_pub.publish(persons_list);
+      previously_known = known;
+    }
   }
 
-  void remove_person(ID id)
-  {
-    if (!persons.count(id))
-    {
-      return;
-    }
-
-    // unlike anonymous persons, non-anonymous person can not be removed -- they
-    // can merely become untracked.
-    if (persons[id]->anonymous())
-    {
-      // delete the person (the ManagedPerson destructor will also shutdown the
-      // corresponding topics)
-      persons.erase(id);
-
-      anonymous_persons.erase(id);
-    }
-
-    // publish an updated list of known/tracked persons
-    hri_msgs::IdsList persons_list;
-    for (auto const& kv : persons)
-    {
-      if (kv.second->activelyTracked())
-      {
-        persons_list.ids.push_back(kv.first);
-      }
-    }
-
-    tracked_persons_pub.publish(persons_list);
-
-    publishKnownPersons();
-  }
 
   void publish_persons(chrono::milliseconds elapsed_time)
   {
@@ -310,47 +283,47 @@ public:
           // create a single 'orphan' node. At the end of the next update cycle,
           // this orphan node will be associated to an anonymous_persons if it
           // is not linked to any other node
-          update(id1, type1, id1, type1, 0.);
+          person_matcher.update({ { id1, type1, id2, type2, likelihood } });
         }
         break;
 
         case REMOVE:
         {
           ROS_INFO_STREAM("- Remove ID: " << id1);
-
-          // while erasing the id id1, the person matcher might create
-          // orphans that are as well deleted by the person_matcher.
-          // The ids of the orphans that happened to be persons
-          // are returned by PersonMatcher::erase to then remove these
-          // persons from eg /humans/persons/tracked
-          auto removed_persons = person_matcher.erase(id1);
-
-          for (auto const& id : removed_persons)
-          {
-            remove_person(id);
-          }
+          person_matcher.erase(id1);
         }
         break;
 
         case RELATION:
+        {
           ROS_INFO_STREAM("- Update relation: " << id1 << " (" << type1 << ") <--> " << id2 << " ("
                                                 << type2 << "); likelihood=" << likelihood);
-          update(id1, type1, id2, type2, likelihood);
-          break;
+          person_matcher.update({ { id1, type1, id2, type2, likelihood } });
+        }
+        break;
       }
     }
     updates.clear();
     //////////////////////////
 
+    //////////////////////////
+    //   MAIN ALGORITHM     //
+    //////////////////////////
     auto person_associations = person_matcher.get_all_associations();
+    //////////////////////////
 
-    std_msgs::String graphviz;
-    graphviz.data = person_matcher.get_graphviz();
-    humans_graph_pub.publish(graphviz);
+    ////////////////////////////////////////////
+    // if someone needs it, publish the graphviz model of the relationship graph
+    if (humans_graph_pub.getNumSubscribers() > 0)
+    {
+      std_msgs::String graphviz;
+      graphviz.data = person_matcher.get_graphviz();
+      humans_graph_pub.publish(graphviz);
+    }
 
-    associated_faces.clear();
-    associated_bodies.clear();
-    associated_voices.clear();
+    ////////////////////////////////////////////
+    // go over all the persons in the graph, and process their
+    // associations
 
     for (const auto& kv : person_associations)
     {
@@ -362,26 +335,23 @@ public:
         initialize_person(id);
       }
 
-      auto person = persons[id];
+      auto person = persons.at(id);
 
-      auto association = kv.second;
+      const auto& association = kv.second;
 
       ID face_id, body_id, voice_id;
 
       if (association.find(FeatureType::face) != association.end())
       {
         face_id = association.at(face);
-        associated_faces.insert(face_id);
       }
       if (association.find(FeatureType::body) != association.end())
       {
         body_id = association.at(body);
-        associated_bodies.insert(body_id);
       }
       if (association.find(FeatureType::voice) != association.end())
       {
         voice_id = association.at(voice);
-        associated_voices.insert(voice_id);
       }
 
       ////////////////////////////////////////////
@@ -389,6 +359,22 @@ public:
       person->update(face_id, body_id, voice_id, elapsed_time);
     }
 
+
+    ////////////////////////////////////////////
+    // if an anonymous person is *not* present anymore in the associations, it
+    // has disappeared, and must be removed from the system.
+    vector<ID> to_delete;
+    for (auto const& kv : persons)
+    {
+      if (kv.second->anonymous() && !person_associations.count(kv.first))
+      {
+        to_delete.push_back(kv.first);
+      }
+    }
+    for (const auto& p : to_delete)
+    {
+      persons.erase(p);
+    }
 
 
     ////////////////////////////////////////////
@@ -410,6 +396,8 @@ public:
       tracked_persons_pub.publish(persons_list);
       previously_tracked = actively_tracked;
     }
+
+    publish_known_persons();
   }
 
   void set_threshold(float threshold)
@@ -421,16 +409,9 @@ private:
   NodeHandle& _nh;
 
   map<ID, shared_ptr<ManagedPerson>> persons;
-  vector<ID> previously_tracked;
-  set<ID> anonymous_persons;
+  vector<ID> previously_known, previously_tracked;
 
   vector<Association> updates;
-
-  // hold the list of faces/bodies/voices that are already associated to a person
-  // (so that we do not create un-needed anonymous persons)
-  set<ID> associated_faces;
-  set<ID> associated_bodies;
-  set<ID> associated_voices;
 
   HRIListener hri_listener;
 

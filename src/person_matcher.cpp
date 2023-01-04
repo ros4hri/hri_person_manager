@@ -86,25 +86,15 @@ hri::ID generate_random_id(const int len = 5)
 class node_label_writer
 {
 public:
-  node_label_writer(Graph _g, std::map<hri::FeatureType, std::set<hri::ID>> _id_types)
-    : g(_g), id_types(_id_types)
+  node_label_writer(Graph _g) : g(_g)
   {
   }
   template <class NodeOrEdge>
   void operator()(std::ostream& out, const NodeOrEdge& v) const
   {
-    auto name = get(&NodeProps::name, g, v);
+    auto name = g[v].name;
+    auto type = g[v].type;
 
-    hri::FeatureType type;
-
-    for (auto _type : { face, body, voice, person })
-    {
-      if (id_types.at(_type).count(name))
-      {
-        type = _type;
-        break;
-      }
-    }
     string feat;
     switch (type)
     {
@@ -136,7 +126,6 @@ public:
 
 private:
   Graph g;
-  std::map<hri::FeatureType, std::set<hri::ID>> id_types;
 };
 
 class weight_label_writer
@@ -156,27 +145,10 @@ private:
 };
 ///////////////////////////////////////////////////////////////////////////
 
-Node get_vertex(const Graph& g, const ID id)
-{
-  Graph::vertex_iterator v, vend;
-  for (boost::tie(v, vend) = vertices(g); v != vend; ++v)
-  {
-    if (g[*v].valid && id == g[*v].name)
-      return *v;
-  }
-
-  return INEXISTANT_VERTEX;
-}
-
 PersonMatcher::PersonMatcher(float likelihood_threshold, bool random_anonymous_name)
   : random_anonymous_name(random_anonymous_name)
 {
   set_threshold(likelihood_threshold);
-
-  for (auto type : { face, body, voice, person })
-  {
-    id_types[type] = set<ID>();
-  }
 }
 
 void PersonMatcher::prune_unlikely_connections()
@@ -374,7 +346,7 @@ void PersonMatcher::add_anonymous_person(Subgraph& association)
   g[anon].type = FeatureType::person;
   g[anon].anonymous = true;
 
-  cout << "Adding anonymous person " << g[anon].name << endl;
+  // cout << "Adding anonymous person " << g[anon].name << endl;
 
   // add the node to this association -- the vertex descriptor inside the
   // subgraph might be different than in the global graph -> sub_node != anon
@@ -690,8 +662,8 @@ Subgraphs PersonMatcher::compute_associations()
     fully_connect_persons(subgraph);
   }
 
-  cout << "ASSOCIATIONS:" << endl;
-  print_partition(complete_partition);
+  // cout << "ASSOCIATIONS:" << endl;
+  // print_partition(complete_partition);
   return complete_partition;
 }
 
@@ -733,24 +705,22 @@ void PersonMatcher::update(Relations relations)
   {
     std::tie(id1, type1, id2, type2, likelihood) = rel;
 
-    Node v1 = get_vertex(g, id1);
+    Node v1 = get_node_by_name(id1, g);
 
     if (v1 == INEXISTANT_VERTEX)
     {
       v1 = add_vertex(g);
       g[v1].name = id1;
       g[v1].type = type1;
-      id_types[type1].insert(id1);
     }
 
-    Node v2 = get_vertex(g, id2);
+    Node v2 = get_node_by_name(id2, g);
 
     if (v2 == INEXISTANT_VERTEX)
     {
       v2 = add_vertex(g);
       g[v2].name = id2;
       g[v2].type = type2;
-      id_types[type2].insert(id2);
     }
 
     if (likelihood <= 0.0)
@@ -772,27 +742,20 @@ void PersonMatcher::update(Relations relations)
   }
 }
 
-std::set<ID> PersonMatcher::erase(ID id)
+void PersonMatcher::erase(ID id)
 {
-  set<ID> removed_persons;
-
-  Node v = get_vertex(g, id);
+  Node v = get_node_by_name(id, g);
   if (v == INEXISTANT_VERTEX)
   {
-    return removed_persons;
+    return;
   }
 
+  if (anonymous_ids_map.count(id))
+  {
+    anonymous_ids_map.erase(id);
+  }
   clear_vertex(v, g);
   g[v].valid = false;
-
-  erase_id(id);
-
-  if (id_types[person].count(id))
-  {
-    removed_persons.insert(id);
-  }
-
-  return removed_persons;
 }
 
 void PersonMatcher::reset()
@@ -838,22 +801,8 @@ map<ID, map<FeatureType, ID>> PersonMatcher::get_all_associations()
 string PersonMatcher::get_graphviz() const
 {
   stringstream ss;
-  write_graphviz(ss, g, node_label_writer(g, id_types), weight_label_writer(g));
+  write_graphviz(ss, g, node_label_writer(g), weight_label_writer(g));
 
   return ss.str();
-}
-
-/** warning: if the same ID is used for 2 different features (eg a face and a
- * body), both will be deleted!
- */
-void PersonMatcher::erase_id(ID id)
-{
-  for (auto type : { face, body, voice, person })
-  {
-    if (id_types[type].count(id))
-    {
-      id_types[type].erase(id);
-    }
-  }
 }
 

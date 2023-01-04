@@ -133,7 +133,7 @@ inline Node get_node_by_name(const std::string& name, const Graph& G)
 {
   for (const auto& n : boost::make_iterator_range(vertices(G)))
   {
-    if (G[n].name == name)
+    if (G[n].valid && G[n].name == name)
     {
       return n;
     }
@@ -179,12 +179,8 @@ public:
 
   /** deletes a given ID (be it a person, a face, a body or a voice) from
    * the probabilistic graph.
-   *
-   * Removes as well orphan nodes that might result from removing the given ID.
-   *
-   * The set of all *person* IDs removed during the process is returned.
    */
-  std::set<hri::ID> erase(hri::ID id);
+  void erase(hri::ID id);
 
   /** clear the whole probabilistic graph.
    */
@@ -401,11 +397,7 @@ private:
    */
   float partition_affinity(const Subgraphs& partition) const;
 
-  void erase_id(hri::ID id);
-
   void print_partition(const Subgraphs& partition) const;
-
-  std::map<hri::FeatureType, std::set<hri::ID>> id_types;
 
   float threshold;
 };
