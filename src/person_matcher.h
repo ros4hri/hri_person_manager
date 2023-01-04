@@ -72,6 +72,7 @@ struct NodeProps
   int anonymous_id;        // only used for tracking anon id for unit-testing
   bool valid = true;       // boost::subgraph does not support *removing* nodes -> we mark
                            // removed nodes as invalid to ignore them
+  unsigned int association_id = 1;  // only used for the graphviz output
 };
 
 struct EdgeProps

@@ -82,6 +82,12 @@ hri::ID generate_random_id(const int len = 5)
   return tmp_s;
 }
 
+const map<unsigned int, string> colorscheme{
+  { 0, "white" },           { 1, "cadetblue1" },  { 2, "cornsilk1" },
+  { 3, "darkolivegreen2" }, { 4, "darkorange1" }, { 5, "gold" },
+  { 6, "gray66" },          { 7, "lightgreen" },  { 8, "lightslateblue" },
+  { 9, "mediumorchid1" },   { 10, "turquoise1" }
+};
 //////////// helpers for write_graphviz ////////////////
 class node_label_writer
 {
@@ -114,13 +120,15 @@ public:
     }
 
 
-    if (name.find(hri::ANONYMOUS) != std::string::npos)
+    auto color = colorscheme.at(g[v].association_id % colorscheme.size());
+
+    if (g[v].anonymous)
     {
-      out << "[style=dashed shape=box label=\"" << name << feat << "\"]";
+      out << "[style=dashed shape=box color=" << color << " label=\"" << name << feat << "\"]";
     }
     else
     {
-      out << "[shape=box label=\"" << name << feat << "\"]";
+      out << "[style=filled shape=box color=" << color << " label=\"" << name << feat << "\"]";
     }
   }
 
@@ -664,6 +672,17 @@ Subgraphs PersonMatcher::compute_associations()
 
   // cout << "ASSOCIATIONS:" << endl;
   // print_partition(complete_partition);
+  size_t idx = 0;
+
+  for (const auto& association : complete_partition)
+  {
+    idx += 1;
+    auto subgraph = association.first;
+    for (const auto& n : boost::make_iterator_range(vertices(subgraph)))
+    {
+      subgraph[n].association_id = idx;
+    }
+  }
   return complete_partition;
 }
 
