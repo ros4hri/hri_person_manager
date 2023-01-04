@@ -252,6 +252,7 @@ public:
 
     if (known != previously_known)
     {
+      persons_list.header.stamp = ros::Time::now();
       known_persons_pub.publish(persons_list);
       previously_known = known;
     }
@@ -393,6 +394,7 @@ public:
 
     if (actively_tracked != previously_tracked)
     {
+      persons_list.header.stamp = ros::Time::now();
       tracked_persons_pub.publish(persons_list);
       previously_tracked = actively_tracked;
     }
