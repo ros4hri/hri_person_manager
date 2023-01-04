@@ -1,3 +1,5 @@
+#include <gtest/gtest.h>
+
 #include <boost/graph/graph_utility.hpp>
 #include <boost/graph/named_function_params.hpp>
 #include <boost/graph/connected_components.hpp>
@@ -323,17 +325,19 @@ void run_test(const string &test_name, PersonMatcher &input, const Graph &graph,
 
     {
       cout << "✅ TEST SUCCESSFUL" << endl;
+      EXPECT_TRUE(true);
     }
     else
     {
       cout << "🟥 TEST FAILED" << endl;
+
 
       cout << "\nComputed associations:" << endl;
       print_associations(final_graph);
       cout << "\nExpected associations:" << endl;
       print_associations(output);
 
-      exit(1);
+      EXPECT_TRUE(false);
     }
   }
   else
@@ -346,13 +350,13 @@ void run_test(const string &test_name, PersonMatcher &input, const Graph &graph,
     cout << "\nExpected graph (" << boost::num_vertices(graph) << " vertices):" << endl;
     print_graph(graph);
 
-    exit(1);
+    EXPECT_TRUE(false);
   }
 }
 
-int main(int argc, char **argv)
+void run_mermaid_tests(string path)
 {
-  ifstream input_file(argv[1]);
+  ifstream input_file(path);
   string line;
 
   string in_section;

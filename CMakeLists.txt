@@ -47,12 +47,6 @@ target_link_libraries(${PROJECT_NAME}_node
    ${catkin_LIBRARIES}
 )
 
-add_executable(mermaid_test 
-    src/mermaid.cpp
-    src/person_matcher.cpp)
-target_link_libraries(mermaid_test
-   ${catkin_LIBRARIES}
-)
 
 ###########################################################
 # Tests
@@ -65,7 +59,7 @@ include_directories(
 
 find_package(rostest REQUIRED)
 
-add_rostest_gmock(test_hri_person_manager test/test_hri_person_manager.test test/test_hri_person_manager.cpp src/person_matcher.cpp)
+add_rostest_gmock(test_hri_person_manager test/test_hri_person_manager.test test/test_hri_person_manager.cpp test/mermaid.cpp src/person_matcher.cpp)
 target_include_directories(test_hri_person_manager PRIVATE ${rostest_INCLUDE_DIRS})
 target_link_libraries(test_hri_person_manager ${catkin_LIBRARIES})
 
