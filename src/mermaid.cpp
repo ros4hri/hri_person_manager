@@ -360,7 +360,7 @@ int main(int argc, char **argv)
 
 
   bool has_test = false;
-  PersonMatcher input;
+  PersonMatcher input(0.5, false);  // false to use sequential anonmyous ID instead of random ones
   Graph graph, output;
   string test_name;
 

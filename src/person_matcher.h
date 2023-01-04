@@ -144,7 +144,7 @@ inline Node get_node_by_name(const std::string& name, const Graph& G)
 class PersonMatcher
 {
 public:
-  PersonMatcher(float likelihood_threshold = 0.5);
+  PersonMatcher(float likelihood_threshold = 0.5, bool random_anonymous_name = true);
 
   /** sets the likelihood threshold to consider a feature (body, face, voice)
    * to belong to a person.
@@ -198,12 +198,14 @@ public:
 
   /** returns the most likely associations for a given person.
    *
-   * If you need to query more than one person, it is always more efficient to
-   * use PersonMatcher::get_all_associations instead.
+   * If the person does not exist, throw an out_of_range exception.
+   *
+   * Note: if you need to query more than one person, it is always more
+   * efficient to use PersonMatcher::get_all_associations instead.
    */
   std::map<hri::FeatureType, hri::ID> get_association(hri::ID id)
   {
-    return get_all_associations()[id];
+    return get_all_associations().at(id);
   }
 
   /** returns the current likelihood graph in dot format
@@ -294,6 +296,8 @@ private:
    */
   void prune_unlikely_connections();
 
+  bool random_anonymous_name;
+
   /**
    * If the provided association does not include a person, create
    * an anonymous person.
@@ -304,6 +308,26 @@ private:
   void add_anonymous_person(Subgraph& association);
 
   void clear_anonymous_persons();
+
+  // Mapping between features and previously used anonymous person ids.
+  // Used to reuse as much as possible the same anonymous IDs for the same
+  // features
+  std::map<std::string, std::string> anonymous_ids_map;
+
+  /** this methods returns a anonymous person ID for an association lacking a person.
+   *
+   * It will:
+   * - check (in alphabetical order) if any of the features of the association has already
+   * been associated to an anonymous person in the past
+   *   - if so:
+   *        - deletes all entries in anonymous_ids_map with that id, to ensure no other
+   *          association might end up reusing the same id
+   *        - assigns the id to all features in this association
+   *        - returns the id
+   *   - if not:
+   *        - generates a new ID, assign it to each features, and returns it.
+   */
+  std::string set_get_anonymous_id(std::vector<std::string>);
 
   int incremental_anon_id = 1;
 

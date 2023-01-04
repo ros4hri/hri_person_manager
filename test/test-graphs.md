@@ -77,8 +77,9 @@ body1 ---|0.6| face1
 ``` mermaid
 graph LR
 
-face1 ---|0.4| anon1
-body1 ---|0.4| anon1
+%% anon2 is prefered to anon1 because body1 is alphabetically before face1
+face1 ---|0.4| anon2
+body1 ---|0.4| anon2
 body1 ---|0.6| face1
 ```
 
@@ -103,7 +104,7 @@ body1
 ``` mermaid
 graph LR
 
-body1 ---|0.4| anon1
+body1 ---|0.4| anon2
 ```
 
 # Step 5: new face associated to person
@@ -128,7 +129,7 @@ face2 ---|0.7| person1
 ``` mermaid
 graph LR
 
-body1 ---|0.4| anon1
+body1 ---|0.4| anon2
 face2 ---|0.7| person1
 ```
 
@@ -242,7 +243,7 @@ graph LR
 face3 ---|0.8| body1
 face3 ---|0.6| person1
 body1 ---|0.48| person1
-face4 ---|0.4| anon1
+face4 ---|0.4| anon3
 ```
 
 # Step 10: new face being recognised
@@ -422,7 +423,7 @@ b2 ---|0.56| p4
 
 p2
 p3
-v3 ---|0.4| anon2
+v3 ---|0.4| anon1
 ```
 
 
@@ -469,7 +470,7 @@ b2 ---|0.56| p4
 
 p2
 p3
-v3 ---|0.4| anon2
+v3 ---|0.4| anon1
 ```
 
 
@@ -527,9 +528,9 @@ person2 ---|0.9| face1
 voice3 ---|0.5| body3
 
 
-anon3 ---|0.4| body1
+anon1 ---|0.4| body1
 body1 ---|0.9| voice2
-voice2 ---|0.4| anon3
+voice2 ---|0.4| anon1
 
 body2 ---|0.81| person1
 voice1 ---|0.5| body2
@@ -563,7 +564,7 @@ voice3 ---|0.5| body3
 ``` mermaid
 graph LR
 
-voice1 ---|0.4| anon3
+voice1 ---|0.4| anon2
 
 body3 ---|0.7| person2
 person2 ---|0.9| face1
@@ -609,9 +610,9 @@ voice1 ---|0.6| body4
 ``` mermaid
 graph LR
 
-%% body4 should be connected to existing anon3
-voice1 ---|0.4| anon3
-body4 ---|0.4| anon3
+%% body4 should be connected to existing anon2
+voice1 ---|0.4| anon2
+body4 ---|0.4| anon2
 voice1 ---|0.6| body4
 
 body3 ---|0.7| person2
