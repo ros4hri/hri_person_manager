@@ -26,7 +26,7 @@ ManagedPerson::ManagedPerson(NodeHandle& nh, ID id, tf2_ros::Buffer& tf_buffer,
   loc_confidence_pub = _nh->advertise<std_msgs::Float32>(NS + id + "/location_confidence", 1);
 
 
-  setAnonymous((id.substr(0, ANONYMOUS.size()) == ANONYMOUS) ? true : false);
+  setAnonymous((id.rfind(hri::ANONYMOUS, 0) == 0) ? true : false);
 
   _tf_frame = _anonymous ? id : hri::PERSON + id;
 }
