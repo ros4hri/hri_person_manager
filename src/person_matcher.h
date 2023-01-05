@@ -362,23 +362,10 @@ private:
    * Mutates the provided boost::subgraph (and all its ancestors) to add all
    * the possible partitions.
    * It is highly recommended to regularly remove the subgraph (by eg calling
-   * PersonMatcher::reset_subgraphs or PersonMatcher::clean_graph_copy),
-   * otherwise the number of subgraph might explode.
+   * PersonMatcher::clean_graph_copy), otherwise the number of subgraph might
+   * explode.
    */
   std::vector<Subgraphs> get_partitions(Graph&);
-
-  /** deletes all the subgraphs of a given graph
-   */
-  void reset_subgraphs(Graph& g)
-  {
-    // m_children is an undocumented boost property -- no officially documented way of
-    // deleting a subgraph...
-    for (auto i : g.m_children)
-    {
-      delete i;
-    }
-    g.m_children.clear();
-  }
 
   /** Helper function recursively called by PersonMatcher::get_partitions
    */

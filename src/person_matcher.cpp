@@ -153,8 +153,8 @@ private:
 };
 ///////////////////////////////////////////////////////////////////////////
 
-PersonMatcher::PersonMatcher(float likelihood_threshold, bool random_anonymous_name)
-  : random_anonymous_name(random_anonymous_name)
+PersonMatcher::PersonMatcher(float likelihood_threshold, bool _random_anonymous_name)
+  : random_anonymous_name(_random_anonymous_name)
 {
   set_threshold(likelihood_threshold);
 }
