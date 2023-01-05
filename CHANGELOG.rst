@@ -2,6 +2,12 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* documentation of the new algorithm
+* fix shadowing issues
+* Contributors: Séverin Lemaignan
+
 1.0.0 (2023-01-04)
 ------------------
 
