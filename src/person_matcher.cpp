@@ -674,6 +674,9 @@ Subgraphs PersonMatcher::compute_associations()
   // print_partition(complete_partition);
   size_t idx = 0;
 
+  ///////
+  // assign their association id to each node -- only used to color the graphviz
+  // output!
   for (const auto& association : complete_partition)
   {
     idx += 1;
@@ -683,6 +686,8 @@ Subgraphs PersonMatcher::compute_associations()
       subgraph[n].association_id = idx;
     }
   }
+  ///////
+
   return complete_partition;
 }
 

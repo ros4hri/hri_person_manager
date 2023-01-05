@@ -346,7 +346,7 @@ private:
    *  0. we find the person node
    *  1. we *temporarily remove* previously computed edges to the person,
    *  2. we compute the shortest path between the person and each of the features
-   *  using the *log* of the likelihoods, so that the path lenght is the
+   *  using the *log* of the likelihoods, so that the path length is the
    *  resulting probability of the association (product of the likelihoods)
    *  3. if the person and the feature are not directly connected, we create a new
    *  'computed' edge with the corresponding likelihood.

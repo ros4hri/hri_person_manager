@@ -18,14 +18,14 @@ Algorithm
 
 This node subscribes to the `/humans/candidate_matches` topic (of type
 [hri_msgs/IdsMatch.msg](https://github.com/ros4hri/hri_msgs/blob/master/msg/IdsMatch.msg)
-and creates a Bayesian graph with each detected features (face, body, voice) or
-persons. The weight of each edge is computed as `log(1/p)` with `p` the
-probability associated to the face/body/voice/person match.
+and creates a probablisitic graph with each detected features (face, body,
+voice) or persons. Features are considered to be linked if the likelihood of
+their connection is above the `humans/match_threshold` parameter.
 
-For each person, it then looks for the 'shortest path' (using the Djisktra
-algorithm) linking the person to a face/body/voice, and consider them to be
-linked if the resulting probability is above the `humans/match_threshold`
-parameter.
+It then looks for a partition of that graph such that:
+- each subgraph is connected
+- each subgraph has at most one feature of each type
+- the overall likelihood of associations is maximised
 
 See [doc/ALGORITHM.md](doc/ALGORITHM.md) for details.
 
@@ -54,7 +54,7 @@ Installation
 ### Installation
 
 Compile & install the node like any standard ROS node (eg, use `catkin
-make`).
+build`).
 
 It can be installed manually, by running the following set
 of commands:
