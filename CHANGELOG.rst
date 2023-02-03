@@ -2,6 +2,15 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* ensure removing nodes takes place *after* possible other updates
+  It might happen that in the same hri_person_manager update cycle, a feature is removed and a update between that feature and another one is received. If the updated arrives just after the deletion, the feature will be immediately re-created. We now perform all the deletions *last* in an update cycle.
+  In some rare situation where the same feature (eg a face) is deleted and actually purposefully re-created with one hri_person_manager update cycle (100ms by default), this change will lead to undesired behaviours (the feature will not be re-created)
+* do not re-create nodes when the candidate_match likelihood is 0
+* ensure the 'show_graph' script can be executed
+* Contributors: Séverin Lemaignan
+
 1.0.1 (2023-01-05)
 ------------------
 * documentation of the new algorithm
