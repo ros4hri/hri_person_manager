@@ -730,6 +730,17 @@ void PersonMatcher::update(Relations relations)
     std::tie(id1, type1, id2, type2, likelihood) = rel;
 
     Node v1 = get_node_by_name(id1, g);
+    Node v2 = get_node_by_name(id2, g);
+
+    if (likelihood <= 0.0)
+    {
+      if (v1 != INEXISTANT_VERTEX && v2 != INEXISTANT_VERTEX)
+      {
+        remove_edge(v1, v2, g);
+      }
+      continue;
+    }
+
 
     if (v1 == INEXISTANT_VERTEX)
     {
@@ -738,19 +749,12 @@ void PersonMatcher::update(Relations relations)
       g[v1].type = type1;
     }
 
-    Node v2 = get_node_by_name(id2, g);
 
     if (v2 == INEXISTANT_VERTEX)
     {
       v2 = add_vertex(g);
       g[v2].name = id2;
       g[v2].type = type2;
-    }
-
-    if (likelihood <= 0.0)
-    {
-      remove_edge(v1, v2, g);
-      continue;
     }
 
     Edge e;
