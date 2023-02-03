@@ -599,6 +599,8 @@ Subgraphs PersonMatcher::compute_associations()
     return {};
 
   clear_anonymous_persons();
+
+  // !! mutates this->g
   g = clean_graph_copy(g);
 
   // !! mutates this->g
@@ -775,12 +777,17 @@ void PersonMatcher::erase(ID id)
   Node v = get_node_by_name(id, g);
   if (v == INEXISTANT_VERTEX)
   {
+    ROS_ERROR_STREAM("Unknown ID " << id << "! can not remove it");
     return;
   }
 
   if (anonymous_ids_map.count(id))
   {
-    anonymous_ids_map.erase(id);
+    auto nb = anonymous_ids_map.erase(id);
+    if (nb != 1)
+    {
+      ROS_ERROR_STREAM("Removed " << nb << " elements for ID " << id << " instead of exactly 1");
+    }
   }
   clear_vertex(v, g);
   g[v].valid = false;
@@ -798,6 +805,9 @@ map<ID, map<FeatureType, ID>> PersonMatcher::get_all_associations()
   // TODO: we must ensure that g is *not mutated* until the end of the method.
   // Might be safer to make a copy of g at the start, and run
   // compute_associations on that copy.
+  // However this should be fine, as none of the callback based methods directly mutate
+  // the graph (all mutations take place from 'publish_persons')
+
   auto associations = compute_associations();
 
   map<ID, map<FeatureType, ID>> res;
