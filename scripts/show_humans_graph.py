@@ -1,3 +1,5 @@
+#! /usr/bin/python3
+
 import graphviz
 import rospy
 from std_msgs.msg import String
