@@ -2,6 +2,21 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* add ~features_from_matches parameter to control how features a created
+  `~features_from_matches` (`bool`, default: `true`): if set to true, features
+  appearing in a `candidate_matches` message are assumed to be currently
+  tracked, and are added to the features-person graph. If set to false, only
+  features published on `/humans/*/tracked` are considered tracked, and
+  `candidate_matches` for untracked features will be ignored.
+* fix 829ca7843 accidentally prevented new features to be created
+* Revert "ensure removing nodes takes place *after* possible other updates"
+  This reverts commit 41499982edbea97c6ed977eab05f0e2be86fd762.
+  Changing the order of updates to the model would break invariants.
+  Better not to do that.
+* Contributors: Séverin Lemaignan
+
 1.0.2 (2023-02-03)
 ------------------
 * ensure removing nodes takes place *after* possible other updates
