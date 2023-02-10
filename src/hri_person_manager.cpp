@@ -227,8 +227,7 @@ public:
       return;
     }
 
-    updates_deletions.push_back(
-        { REMOVE, id, FeatureType::invalid, id, FeatureType::invalid, 0. });
+    updates.push_back({ REMOVE, id, FeatureType::invalid, id, FeatureType::invalid, 0. });
   }
 
 
@@ -269,7 +268,7 @@ public:
     FeatureType type1, type2;
     float likelihood;
 
-    if (!updates.empty() || !updates_deletions.empty())
+    if (!updates.empty())
     {
       ROS_INFO_STREAM("Updating graph:");
     }
@@ -306,16 +305,6 @@ public:
       }
     }
     updates.clear();
-
-    for (auto u : updates_deletions)
-    {
-      std::tie(update_type, id1, type1, id2, type2, likelihood) = u;
-
-      ROS_INFO_STREAM("- Remove ID: " << id1);
-      person_matcher.erase(id1);
-    }
-    updates_deletions.clear();
-
     //////////////////////////
 
     //////////////////////////
@@ -425,7 +414,6 @@ private:
   vector<ID> previously_known, previously_tracked;
 
   vector<Association> updates;
-  vector<Association> updates_deletions;
 
   HRIListener hri_listener;
 
