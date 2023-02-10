@@ -43,8 +43,12 @@ typedef std::tuple<UpdateType, ID, FeatureType, ID, FeatureType, float> Associat
 class PersonManager
 {
 public:
-  PersonManager(NodeHandle& nh, const string& reference_frame)
-    : _nh(nh), _reference_frame(reference_frame), tfListener(tfBuffer)
+  PersonManager(NodeHandle& nh, const string& reference_frame,
+                bool create_features_from_candidate_matches)
+    : _nh(nh)
+    , _reference_frame(reference_frame)
+    , _create_features_from_candidate_matches(create_features_from_candidate_matches)
+    , tfListener(tfBuffer)
   {
     tracked_persons_pub = _nh.advertise<hri_msgs::IdsList>("/humans/persons/tracked", 1, true);
     known_persons_pub = _nh.advertise<hri_msgs::IdsList>("/humans/persons/known", 1, true);
@@ -299,7 +303,8 @@ public:
         {
           ROS_INFO_STREAM("- Update relation: " << id1 << " (" << type1 << ") <--> " << id2 << " ("
                                                 << type2 << "); likelihood=" << likelihood);
-          person_matcher.update({ { id1, type1, id2, type2, likelihood } });
+          person_matcher.update({ { id1, type1, id2, type2, likelihood } },
+                                _create_features_from_candidate_matches);
         }
         break;
       }
@@ -433,6 +438,7 @@ private:
   string _reference_frame;
 
   ros::Subscriber candidates;
+  bool _create_features_from_candidate_matches;
 };
 
 int main(int argc, char** argv)
@@ -447,8 +453,11 @@ int main(int argc, char** argv)
   string reference_frame;
   ros::param::param<string>("/humans/reference_frame", reference_frame, "map");
 
+  bool create_features_from_candidate_matches;
+  ros::param::param<bool>("~features_from_matches", create_features_from_candidate_matches, true);
 
-  PersonManager pm(nh, reference_frame);
+
+  PersonManager pm(nh, reference_frame, create_features_from_candidate_matches);
 
   pm.set_threshold(match_threshold);
 

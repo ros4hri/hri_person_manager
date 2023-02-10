@@ -721,7 +721,7 @@ void PersonMatcher::print_partition(const Subgraphs& partition) const
   }
 }
 
-void PersonMatcher::update(Relations relations)
+void PersonMatcher::update(Relations relations, bool create_features_from_candidate_matches)
 {
   ID id1, id2;
   FeatureType type1, type2;
@@ -743,6 +743,15 @@ void PersonMatcher::update(Relations relations)
       continue;
     }
 
+    if (!create_features_from_candidate_matches &&
+        (v1 == INEXISTANT_VERTEX || v2 == INEXISTANT_VERTEX))
+    {
+      ROS_WARN("Not updating relation as one of the feature does not exist and ~features_from_matches=false");
+      continue;
+    }
+
+
+    // if needed, create the vertices
 
     if (v1 == INEXISTANT_VERTEX)
     {
