@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.3 (2023-02-10)
+------------------
 * add ~features_from_matches parameter to control how features a created
   `~features_from_matches` (`bool`, default: `true`): if set to true, features
   appearing in a `candidate_matches` message are assumed to be currently

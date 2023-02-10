@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>hri_person_manager</name>
-  <version>1.0.2</version>
+  <version>1.0.3</version>
   <description>Combines information about people's face, body, voice into on consistent representation, following the ROS4HRI conventions</description>
 
   <maintainer email="severin.lemaignan@pal-robotics.com">Séverin Lemaignan</maintainer>
