@@ -283,7 +283,7 @@ string PersonMatcher::set_get_anonymous_id(vector<string> feature_ids)
   {
     if (anonymous_ids_map.count(id) > 0)
     {
-      return anonymous_ids_map.at(id);
+      anon_id = anonymous_ids_map.at(id);
       break;
     }
   }
