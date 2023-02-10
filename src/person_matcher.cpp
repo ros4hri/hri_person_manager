@@ -751,6 +751,12 @@ void PersonMatcher::update(Relations relations)
       g[v1].type = type1;
     }
 
+    // id1 == id2 -> we a simply creating a new feature; no edge to add
+    if (id1 == id2)
+    {
+      continue;
+    }
+
 
     if (v2 == INEXISTANT_VERTEX)
     {

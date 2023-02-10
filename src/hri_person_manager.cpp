@@ -284,7 +284,7 @@ public:
           // create a single 'orphan' node. At the end of the next update cycle,
           // this orphan node will be associated to an anonymous_persons if it
           // is not linked to any other node
-          person_matcher.update({ { id1, type1, id2, type2, likelihood } });
+          person_matcher.update({ { id1, type1, id2, type2, 1.0 } });
         }
         break;
 
