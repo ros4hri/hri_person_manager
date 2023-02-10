@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.4 (2023-02-10)
+------------------
 * generate stable anonymous person ID, based on feature's name
 * fix wrong early return when assigning random IDs
 * Contributors: Séverin Lemaignan
