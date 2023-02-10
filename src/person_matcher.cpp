@@ -39,6 +39,7 @@
 #include <array>
 #include <algorithm>
 #include <random>
+#include <functional>
 
 #include "person_matcher.h"
 #include "managed_person.h"
@@ -77,6 +78,26 @@ hri::ID generate_random_id(const int len = 5)
   for (int i = 0; i < len; ++i)
   {
     tmp_s += alphanum[rnd_dist(rng)];
+  }
+
+  return tmp_s;
+}
+
+hri::ID generate_hash_id(hri::ID id, const int len = 5)
+{
+  static const std::array<string, 26> alphanum{
+    { "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+      "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z" }
+  };
+  string tmp_s;
+  tmp_s.reserve(len);
+
+  auto hash = std::hash<hri::ID>{}(id);
+
+  for (int i = 0; i < len; ++i)
+  {
+    tmp_s += alphanum[hash % 10];
+    hash /= 10;
   }
 
   return tmp_s;
@@ -311,7 +332,8 @@ string PersonMatcher::set_get_anonymous_id(vector<string> feature_ids)
   {
     if (random_anonymous_name)
     {
-      anon_id = hri::ANONYMOUS + generate_random_id();
+      // anon_id = hri::ANONYMOUS + generate_random_id();
+      anon_id = hri::ANONYMOUS + generate_hash_id(*feature_ids.begin());
     }
     else
     {
