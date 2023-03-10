@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.5 (2023-03-10)
+------------------
 * when using ~features_from_matches=False, still enable creating persons
   Otherwise, person would never be created
 * Contributors: Séverin Lemaignan
