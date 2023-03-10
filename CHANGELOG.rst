@@ -2,6 +2,12 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* when using ~features_from_matches=False, still enable creating persons
+  Otherwise, person would never be created
+* Contributors: Séverin Lemaignan
+
 1.0.4 (2023-02-10)
 ------------------
 * generate stable anonymous person ID, based on feature's name
