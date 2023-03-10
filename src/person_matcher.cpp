@@ -768,8 +768,16 @@ void PersonMatcher::update(Relations relations, bool create_features_from_candid
     if (!create_features_from_candidate_matches &&
         (v1 == INEXISTANT_VERTEX || v2 == INEXISTANT_VERTEX))
     {
-      ROS_WARN("Not updating relation as one of the feature does not exist and ~features_from_matches=false");
-      continue;
+      if ((v1 == INEXISTANT_VERTEX && type1 == person && v2 != INEXISTANT_VERTEX) ||
+          (v2 == INEXISTANT_VERTEX && type2 == person && v1 != INEXISTANT_VERTEX))
+      {
+        ROS_DEBUG("~features_from_matches=false, but we are trying to create a new person with an existing feature -> still create the person.");
+      }
+      else
+      {
+        ROS_WARN("Not updating relation as one of the feature does not exist and ~features_from_matches=false");
+        continue;
+      }
     }
 
 
