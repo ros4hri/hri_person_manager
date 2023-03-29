@@ -2,6 +2,13 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* by default, do not create features from matches
+  Avoid 'ghost' features when the feature matcher still publishes matches after the features are not tracked anymore.
+  While here, added some console output to explain the current enabled state
+* Contributors: Séverin Lemaignan
+
 1.0.6 (2023-03-29)
 ------------------
 * rename binary to hri_person_manager
