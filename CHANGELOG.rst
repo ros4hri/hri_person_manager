@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.6 (2023-03-29)
+------------------
 * rename binary to hri_person_manager
 * Contributors: Séverin Lemaignan
 
