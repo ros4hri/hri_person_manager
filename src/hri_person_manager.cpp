@@ -454,8 +454,16 @@ int main(int argc, char** argv)
   ros::param::param<string>("/humans/reference_frame", reference_frame, "map");
 
   bool create_features_from_candidate_matches;
-  ros::param::param<bool>("~features_from_matches", create_features_from_candidate_matches, true);
+  ros::param::param<bool>("~features_from_matches", create_features_from_candidate_matches, false);
 
+  if (create_features_from_candidate_matches)
+  {
+    ROS_INFO("~features_from_matches: True. New features (faces, bodies, voices) will be created if referred to in /humans/candidate_matches, even if not explicitely tracked. While this is the correct REP-155 semantic, it might cause unexpected 'ghost' features if the feature matchers publish candidate matches even after the feature is not tracked anymore.");
+  }
+  else
+  {
+    ROS_INFO("~features_from_matches: False (default). New features (faces, bodies, voices) will be only created if explicitely tracked (ie appear in /humans/*/tracked)");
+  }
 
   PersonManager pm(nh, reference_frame, create_features_from_candidate_matches);
 
