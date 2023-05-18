@@ -2,6 +2,11 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* add diagnostics
+* Contributors: lukajuricic
+
 1.0.7 (2023-03-29)
 ------------------
 * by default, do not create features from matches
