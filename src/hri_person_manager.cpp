@@ -7,6 +7,8 @@
 #include <ros/ros.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <tf2_ros/transform_listener.h>
+#include <diagnostic_msgs/DiagnosticStatus.h>
+#include <diagnostic_updater/diagnostic_updater.h>
 #include <hri/hri.h>
 #include <hri/base.h>
 #include <thread>
@@ -49,6 +51,9 @@ public:
     , _reference_frame(reference_frame)
     , _create_features_from_candidate_matches(create_features_from_candidate_matches)
     , tfListener(tfBuffer)
+    , diag_updater(nh, ros::NodeHandle("~"),
+                   " Social perception")  // adding initial space in 'node_name' string
+                                          // since diagnostic_updater removes the first char
   {
     tracked_persons_pub = _nh.advertise<hri_msgs::IdsList>("/humans/persons/tracked", 1, true);
     known_persons_pub = _nh.advertise<hri_msgs::IdsList>("/humans/persons/known", 1, true);
@@ -65,6 +70,8 @@ public:
     hri_listener.onVoice(bind(&PersonManager::onVoice, this, _1));
     hri_listener.onVoiceLost(bind(&PersonManager::onFeatureLost, this, _1));
 
+    diag_updater.setHardwareID("none");
+    diag_updater.add("Data fusion", this, &PersonManager::updateDiagnostics);
 
     ROS_INFO("hri_person_manager ready. Waiting for candidate associations on /humans/candidate_matches or updates on /humans/*/tracked");
   }
@@ -235,9 +242,20 @@ public:
   }
 
 
+  void updateDiagnostics(diagnostic_updater::DiagnosticStatusWrapper& status)
+  {
+    status.summary(diagnostic_msgs::DiagnosticStatus::OK, "");
+    status.add("Package name", "hri_person_manager");
+    status.add("Currently tracked persons", previously_tracked.size());
+    status.add("Known persons", previously_known.size());
+    status.add("Last known person ID", last_known_person);
+    status.add("Processing time", to_string(proc_time_ms) + "ms");
+  }
+
   void initialize_person(ID id)
   {
     persons[id] = make_shared<ManagedPerson>(_nh, id, tfBuffer, _reference_frame);
+    last_known_person = id;
 
     publish_known_persons();
   }
@@ -271,6 +289,7 @@ public:
     ID id1, id2;
     FeatureType type1, type2;
     float likelihood;
+    ros::Time proc_start_time = ros::Time::now();
 
     if (!updates.empty())
     {
@@ -404,7 +423,9 @@ public:
       previously_tracked = actively_tracked;
     }
 
+    proc_time_ms = (ros::Time::now() - proc_start_time).toSec() * 1000;
     publish_known_persons();
+    diag_updater.update();
   }
 
   void set_threshold(float threshold)
@@ -417,6 +438,7 @@ private:
 
   map<ID, shared_ptr<ManagedPerson>> persons;
   vector<ID> previously_known, previously_tracked;
+  ID last_known_person;
 
   vector<Association> updates;
 
@@ -436,6 +458,9 @@ private:
   tf2_ros::TransformListener tfListener;
 
   string _reference_frame;
+
+  diagnostic_updater::Updater diag_updater;
+  double proc_time_ms;
 
   ros::Subscriber candidates;
   bool _create_features_from_candidate_matches;
@@ -458,11 +483,11 @@ int main(int argc, char** argv)
 
   if (create_features_from_candidate_matches)
   {
-    ROS_INFO("~features_from_matches: True. New features (faces, bodies, voices) will be created if referred to in /humans/candidate_matches, even if not explicitely tracked. While this is the correct REP-155 semantic, it might cause unexpected 'ghost' features if the feature matchers publish candidate matches even after the feature is not tracked anymore.");
+    ROS_INFO("~features_from_matches: True. New features (faces, bodies, voices) will be created if referred to in /humans/candidate_matches, even if not explicitly tracked. While this is the correct REP-155 semantic, it might cause unexpected 'ghost' features if the feature matchers publish candidate matches even after the feature is not tracked anymore.");
   }
   else
   {
-    ROS_INFO("~features_from_matches: False (default). New features (faces, bodies, voices) will be only created if explicitely tracked (ie appear in /humans/*/tracked)");
+    ROS_INFO("~features_from_matches: False (default). New features (faces, bodies, voices) will be only created if explicitly tracked (ie appear in /humans/*/tracked)");
   }
 
   PersonManager pm(nh, reference_frame, create_features_from_candidate_matches);

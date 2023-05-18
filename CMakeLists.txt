@@ -11,6 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
   hri_msgs
   std_srvs
   roscpp
+  diagnostic_msgs
+  diagnostic_updater
 )
 
 find_package(Boost REQUIRED) # for Boost graph library
@@ -24,7 +26,7 @@ include_directories(
 
 catkin_package(
   LIBRARIES hri_person_manager
-  CATKIN_DEPENDS hri tf2_ros hri_msgs roscpp std_srvs
+  CATKIN_DEPENDS hri tf2_ros hri_msgs roscpp std_srvs diagnostic_msgs diagnostic_updater
 )
 
 
