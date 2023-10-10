@@ -264,10 +264,15 @@ std::vector<Subgraphs> PersonMatcher::get_partitions(Graph& graph)
 
   std::vector<int> component(num_vertices(graph));  // component map to call boost connected_components
 
+  // -----------------------------------
+  // TODO OPTIMIZATION: this is the slowest part of the code, due to the generation of many subgraphs
+
   // filter the partitions to only keep the *connected* ones
   for (const auto& nodesets : raw_partitions)
   {
     Subgraphs partition;
+    partition.reserve(nodes.size());
+
     bool connected = true;
     for (const auto& nodeset : nodesets)
     {
@@ -289,6 +294,7 @@ std::vector<Subgraphs> PersonMatcher::get_partitions(Graph& graph)
       viable_partitions.push_back(partition);
     }
   }
+  // -----------------------------------
 
   return viable_partitions;
 }
