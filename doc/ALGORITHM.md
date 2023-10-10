@@ -131,6 +131,7 @@ Given a probablisitic relation graph,
    1. generate the list of all possible partitions of the graph, such that:
       * each partition contains at most one node of each type
       * the partition is connected
+   1. filter partitions to only keep to fully connected ones
    1. find the minimum partition size (ie, the minimum possible number of associations)
    1. select all the partitions of that size
    1. amongst these partitions, select the one of highest affinity

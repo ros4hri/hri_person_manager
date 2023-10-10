@@ -593,7 +593,8 @@ float PersonMatcher::partition_affinity(const Subgraphs& partition) const
   return affinity;
 }
 
-Graph PersonMatcher::clean_graph_copy(const Graph& graph, bool remove_anonymous) const
+Graph PersonMatcher::clean_graph_copy(const Graph& graph, bool remove_anonymous,
+                                      bool remove_computed_edges) const
 {
   Graph res;
 
@@ -608,6 +609,11 @@ Graph PersonMatcher::clean_graph_copy(const Graph& graph, bool remove_anonymous)
 
   for (const auto& e : boost::make_iterator_range(edges(graph)))
   {
+    if (remove_computed_edges && graph[e].computed)
+    {
+      continue;
+    }
+
     Node s = get_node_by_name(graph[source(e, graph)].name, res);
     Node t = get_node_by_name(graph[target(e, graph)].name, res);
 

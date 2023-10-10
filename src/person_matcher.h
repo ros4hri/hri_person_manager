@@ -111,7 +111,7 @@ const Node INEXISTANT_VERTEX(-1);
 
 typedef std::vector<Node> Nodes;
 
-// NodeSets are similar to Subgraph, but they only contain nodes, and are not
+// NodeSet are similar to Subgraph, but they only contain nodes, and are not
 // explicitely tied to a graph. This is used by eg
 // PersonMatcher::build_partitions to create partitions without mutating the
 // internal graph (which would be the case if using subgraphs and
@@ -227,11 +227,19 @@ public:
    * nodes.
    *
    */
-  Graph get_internal_graph(bool remove_anonymous = false) const
+  Graph get_internal_graph(bool remove_anonymous = false, bool remove_computed_edges = false) const
   {
-    return clean_graph_copy(g, remove_anonymous);
+    return clean_graph_copy(g, remove_anonymous, remove_computed_edges);
   }
 
+  /** !! for testing/bedugging purposes only
+   *
+   * Cleans the internal graph, by removing all anonymous persons and computed edges.
+   */
+  void clean_graph()
+  {
+    g = clean_graph_copy(g, true, true);
+  }
 
 private:
   Graph g;
@@ -239,7 +247,8 @@ private:
   /** creates a copy of the internal graph g with no subgraph and only valid nodes (ie,
    * non-removed nodes). Optionally, also remove anonymous nodes.
    */
-  Graph clean_graph_copy(const Graph& graph, bool remove_anonymous = false) const;
+  Graph clean_graph_copy(const Graph& graph, bool remove_anonymous = false,
+                         bool remove_computed_edges = false) const;
 
   // used to create FilteredGraph with only valid nodes
   struct ValidNodePredicate
@@ -377,11 +386,10 @@ private:
    *  It is computed by:
    *
    *  - for each each subgraph:
-   *      - assigning weights to each edges by taking the opposite of the likelihoods of associations
+   *      - assigning weights to each edges,  (w = 1 - likelihood) of association
    *      - finding the minimum spanning tree
-   *      - summing the weights of every edge in the subgraph
-   *  - then, summing the weights over all subgraphs
-   *  - taking the opposite of the result to get the final affinitiy
+   *      - summing likelihoods along each of the spanning tree edges
+   *  - return the total sum
    */
   float partition_affinity(const Subgraphs& partition) const;
 
