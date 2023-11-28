@@ -1,22 +1,33 @@
 #include "managed_person.h"
 #include <chrono>
+#include <cmath>
 
 using namespace std;
 using namespace ros;
 using namespace hri;
 
 ManagedPerson::ManagedPerson(NodeHandle& nh, ID id, tf2_ros::Buffer& tf_buffer,
-                             const string& reference_frame)
+                             const string& reference_frame,
+                             const string& robot_reference_frame,
+                             float proxemics_dist_personal,
+                             float proxemics_dist_social,
+                             float proxemics_dist_public)
   : _nh(&nh)
   , _id(id)
   , _actively_tracked(false)
   , _tf_reference_frame(reference_frame)
+  , _tf_robot_reference_frame(robot_reference_frame)
   , _tf_buffer(&tf_buffer)
   , _had_transform_at_least_once(false)
+  , _had_computed_distance_at_least_once(false)
   , _loc_confidence(0.)
   , _loc_confidence_dirty(false)
   , _anonymous(false)
   , _time_since_last_seen(0)
+  , _proxemics_dist_personal(proxemics_dist_personal)
+  , _proxemics_dist_social(proxemics_dist_social)
+  , _proxemics_dist_public(proxemics_dist_public)
+  , _proxemic_zone(Proxemics::PROXEMICS_UNKNOWN)
 {
   face_id_pub = _nh->advertise<std_msgs::String>(NS + id + "/face_id", 1, true);
   body_id_pub = _nh->advertise<std_msgs::String>(NS + id + "/body_id", 1, true);
@@ -24,7 +35,7 @@ ManagedPerson::ManagedPerson(NodeHandle& nh, ID id, tf2_ros::Buffer& tf_buffer,
   alias_pub = _nh->advertise<std_msgs::String>(NS + id + "/alias", 1, true);
   anonymous_pub = _nh->advertise<std_msgs::Bool>(NS + id + "/anonymous", 1, true);
   loc_confidence_pub = _nh->advertise<std_msgs::Float32>(NS + id + "/location_confidence", 1);
-
+  proxemics_pub = _nh->advertise<std_msgs::String>(NS + id + "/proxemic_space", 1, true);
 
   setAnonymous((id.rfind(hri::ANONYMOUS, 0) == 0) ? true : false);
 
@@ -40,6 +51,7 @@ ManagedPerson::~ManagedPerson()
   alias_pub.shutdown();
   anonymous_pub.shutdown();
   loc_confidence_pub.shutdown();
+  proxemics_pub.shutdown();
 }
 
 void ManagedPerson::setFaceId(ID id)
@@ -157,6 +169,51 @@ void ManagedPerson::update(ID face_id, ID body_id, ID voice_id, chrono::millisec
   publishFrame();
 }
 
+void ManagedPerson::setProxemics(const string& target_frame)
+{
+    float distance = 0.f;
+    try
+    {
+        auto transform =
+            _tf_buffer->lookupTransform(_tf_robot_reference_frame, target_frame, ros::Time(0));
+
+        distance = sqrt(
+                transform.transform.translation.x * transform.transform.translation.x +
+                transform.transform.translation.y * transform.transform.translation.y +
+                transform.transform.translation.z * transform.transform.translation.z
+                );
+
+        if (distance < _proxemics_dist_personal) {
+            _proxemic_zone = Proxemics::PROXEMICS_PERSONAL;
+        }
+        else 
+        {
+            if (distance < _proxemics_dist_social) {
+                _proxemic_zone = Proxemics::PROXEMICS_SOCIAL;
+            }
+            else 
+            {
+                if (_proxemics_dist_public <= 0 ||
+                    distance < _proxemics_dist_public) {
+                    _proxemic_zone = Proxemics::PROXEMICS_PUBLIC;
+                }
+                else {
+                    _proxemic_zone = Proxemics::PROXEMICS_UNKNOWN;
+                }
+            }
+        }
+    }
+    catch (tf2::TransformException ex)
+    {
+        ROS_WARN("%s", ex.what());
+        _proxemic_zone = Proxemics::PROXEMICS_UNKNOWN;
+    }
+
+    std_msgs::String proxemic_msg;
+    proxemic_msg.data = PROXEMICS.at(_proxemic_zone);
+    proxemics_pub.publish(proxemic_msg);
+
+}
 
 void ManagedPerson::publishFrame()
 {
@@ -165,6 +222,7 @@ void ManagedPerson::publishFrame()
 
 
   string target_frame;
+  float distance = 0.f;
 
   if (!_face_id.empty())
   {
@@ -179,6 +237,7 @@ void ManagedPerson::publishFrame()
     target_frame = string("voice_") + _voice_id;
   }
 
+  /////////////// BROADCASTING OF PERSON FRAME
   if (!target_frame.empty())
   {
     if (_tf_buffer->canTransform(_tf_reference_frame, target_frame, ros::Time(0)))
@@ -222,6 +281,49 @@ void ManagedPerson::publishFrame()
       {
         _transform.header.stamp = ros::Time::now();
         _tf_br.sendTransform(_transform);
+      }
+    }
+  }
+
+  /////////////// COMPUTATION OF DISTANCE TO ROBOT
+  if (!target_frame.empty())
+  {
+    if (_tf_buffer->canTransform(_tf_robot_reference_frame, target_frame, ros::Time(0)))
+    {
+      ROS_INFO_STREAM_ONCE("[person <" << _id << ">] distance to robot computed as "
+                                       << _tf_robot_reference_frame << " <-> " << target_frame);
+      try
+      {
+          setProxemics(target_frame);
+
+        _had_computed_distance_at_least_once = true;
+      }
+      catch (tf2::TransformException ex)
+      {
+        _proxemic_zone = Proxemics::PROXEMICS_UNKNOWN;
+        ROS_WARN("%s", ex.what());
+      }
+    }
+    else
+    {
+      _proxemic_zone = Proxemics::PROXEMICS_UNKNOWN;
+      ROS_INFO_STREAM_ONCE("[person <" << _id << ">] can not compute distance (either reference frame <"
+                                       << _tf_robot_reference_frame << "> or target frame <"
+                                       << target_frame << "> are not available)");
+    }
+  }
+  else
+  {
+    if (!_had_computed_distance_at_least_once)
+    {
+      ROS_INFO_STREAM_ONCE("[person <" << _id << ">] no face, body or voice TF frame avail. Can not yet compute distance to robot.");
+    }
+    else
+    {
+      // publish the last known transform, until loc_confidence == 0
+      if (_loc_confidence > 0 && _tf_buffer->canTransform(_tf_robot_reference_frame, _tf_frame, ros::Time(0)))
+      {
+          setProxemics(_tf_frame);
       }
     }
   }

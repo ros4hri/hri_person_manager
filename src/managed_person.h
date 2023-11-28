@@ -1,6 +1,7 @@
 #include <iostream>
 #include <chrono>
 #include <string>
+#include <map>
 #include <geometry_msgs/TransformStamped.h>
 #include <ros/node_handle.h>
 #include <ros/publisher.h>
@@ -23,11 +24,30 @@ const std::chrono::seconds LIFETIME_UNTRACKED_PERSON(10);
 const std::string PERSON("person_");
 const std::string ANONYMOUS("anonymous_person_");
 
+enum Proxemics {
+    PROXEMICS_UNKNOWN,
+    PROXEMICS_PERSONAL,
+    PROXEMICS_SOCIAL,
+    PROXEMICS_PUBLIC
+};
+
+const std::map<Proxemics, std::string> PROXEMICS {
+    {Proxemics::PROXEMICS_UNKNOWN,"unknown"},
+    {Proxemics::PROXEMICS_PERSONAL,"personal"},
+    {Proxemics::PROXEMICS_SOCIAL,"social"},
+    {Proxemics::PROXEMICS_PUBLIC,"public"},
+};
+
+
 class ManagedPerson
 {
 public:
   ManagedPerson(ros::NodeHandle& nh, hri::ID id, tf2_ros::Buffer& tf_buffer,
-                const std::string& reference_frame);
+                const std::string& reference_frame,
+                const std::string& robot_reference_frame,
+                float proxemics_dist_personal,
+                float proxemics_dist_social,
+                float proxemics_dist_public);
 
   ~ManagedPerson();
 
@@ -69,6 +89,10 @@ public:
     return _actively_tracked;
   }
 
+  Proxemics proxemicZone() const {
+      return _proxemic_zone;
+  }
+
   void update(hri::ID face_id, hri::ID body_id, hri::ID voice_id,
               std::chrono::milliseconds elapsed_time);
 
@@ -85,17 +109,20 @@ private:
   ros::Publisher alias_pub;
   ros::Publisher anonymous_pub;
   ros::Publisher loc_confidence_pub;
+  ros::Publisher proxemics_pub;
 
   bool _actively_tracked;
 
   std::string _tf_frame;
   std::string _tf_reference_frame;
+  std::string _tf_robot_reference_frame;
 
   tf2_ros::Buffer* _tf_buffer;
   tf2_ros::TransformBroadcaster _tf_br;
 
   geometry_msgs::TransformStamped _transform;
   bool _had_transform_at_least_once;
+  bool _had_computed_distance_at_least_once;
 
   hri::ID _face_id;
   hri::ID _body_id;
@@ -111,6 +138,13 @@ private:
   hri::ID _alias;
 
   std::chrono::milliseconds _time_since_last_seen;
+
+  float _proxemics_dist_personal;
+  float _proxemics_dist_social;
+  float _proxemics_dist_public;
+  Proxemics _proxemic_zone;
+
+  void setProxemics(const std::string& target_frame);
 };
 
 

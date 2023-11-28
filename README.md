@@ -11,7 +11,33 @@ between persons and/or body parts. For instance a face recogniser, that would
 publish candidate matches between faces and unique persons.
 
 `hri_person_manager` is part of the ROS4HRI framework, and follows the 
-ROS REP-155.
+[ROS REP-155](https://www.ros.org/reps/rep-0155.html).
+
+Installation
+------------
+
+### Dependencies
+
+- Boost Graph library
+- `libhri` and `hri_msgs`
+
+### Installation
+
+Compile & install the node like any standard ROS node (eg, use `catkin
+build`).
+
+It can be installed manually, by running the following set
+of commands:
+
+```
+$ cd ros_ws/src
+$ git clone https://github.com/ros4hri/hri_person_manager.git
+$ cd hri_person_manager
+$ mkdir build && cd build
+$ cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/ros/noetic .. && make && make install
+```
+
+(of course, replace the `INSTALL_PREFIX` by your desired prefix)
 
 Algorithm
 ---------
@@ -43,35 +69,39 @@ Parameters
   person moves out of view of the robot (and therefore, its position can not be
   updated anymore), it 'stays' where it was last seen.
 
+- `/humans/robot_reference_frame` (`string`, default: `base_link`): used to
+  compute the distance between a person and the robot. Ideally, a frame attached
+  to the robot, at ~people head height.
+
+- `/humans/proxemics/{personal,social,public}_distance` (`float`, default: 1.2m
+  for `personal_distance`, 3.6m for `social_distance`, 20m for
+  `public_distance`): defines the range of the 3 main proxemics zone: the
+  *personal space* goes from 0m to `personal_distance`, the *social space* from
+  `personal_distance` to `social_distance`, and the *public space* from
+  `social_distance` to `public_distance`. Persons detected beyond the
+  `public_space` distance are not published. Set `public_distance` to 0m to
+  ignore the maximum public space distance and always publish all the people.
+
 - `~features_from_matches` (`bool`, default: `true`): if set to true, features
   appearing in a `candidate_matches` message are assumed to be currently
   tracked, and are added to the features-person graph. If set to false, only
   features published on `/humans/*/tracked` are considered tracked, and
   `candidate_matches` for untracked features will be ignored.
 
-Installation
-------------
+Published topics
+----------------
 
-### Dependencies
+- `/humans/persons/tracked` (type: `hri_msgs/IdList`): list of the persons
+  currently tracked (ie seen or heard)
+- `/humans/persons/known` (type: `hri_msgs/IdList`): list of the persons
+  that were or are tracked at some point
+- `/humans/persons/in_{personal,social,public}_space` (type: `hri_msgs/IdList`):
+  list of persons currently tracked and in the corresponding proxemics space (cf
+  parameters above for the distnace ranges of each zone)
 
-- Boost Graph library
-- `libhri` and `hri_msgs`
+- `/humans/persons/<person id>/...`: refer to [the REP-155](https://www.ros.org/reps/rep-0155.html#persons) for the list of topics and their semantics
 
-### Installation
+In addition to the topics in the REP, `hri_person_manager` also published:
 
-Compile & install the node like any standard ROS node (eg, use `catkin
-build`).
-
-It can be installed manually, by running the following set
-of commands:
-
-```
-$ cd ros_ws/src
-$ git clone https://github.com/ros4hri/hri_person_manager.git
-$ cd hri_person_manager
-$ mkdir build && cd build
-$ cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/ros/noetic .. && make && make install
-```
-
-(of course, replace the `INSTALL_PREFIX` by your desired prefix)
+- `/humans/persons/<person id>/proxemic_space` (type: `std_msgs/String`): one of `unknown`, `personal`, `social`, `public` (based on the ranges defined in the parameter section above)
 
