@@ -1,86 +1,58 @@
-cmake_minimum_required(VERSION 3.1.0)
+# Copyright (c) 2023 PAL Robotics S.L. All rights reserved.
+#
+# Unauthorized copying of this file, via any medium is strictly prohibited,
+# unless it was supplied under the terms of a license agreement or
+# nondisclosure agreement with PAL Robotics SL. In this case it may not be
+# copied or disclosed except in accordance with the terms of that agreement.
+
+
+cmake_minimum_required(VERSION 3.8)
 project(hri_person_manager)
 
-## Compile as C++11, supported in ROS Kinetic and newer
-set (CMAKE_CXX_STANDARD 11)
+# Global flags
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
+# Dependencies
+find_package(ament_cmake_auto REQUIRED)
+ament_auto_find_build_dependencies()
 
-find_package(catkin REQUIRED COMPONENTS
-  hri
-  tf2_ros
-  hri_msgs
-  std_srvs
-  roscpp
-  diagnostic_msgs
-  diagnostic_updater
+# Targets
+ament_auto_add_library(${PROJECT_NAME}_lib
+  src/hri_person_manager/node_person_manager.cpp
+  src/hri_person_manager/managed_person.cpp
+  src/hri_person_manager/person_matcher.cpp
 )
 
-find_package(Boost REQUIRED) # for Boost graph library
-
-
-include_directories(
-    SYSTEM
-    ${catkin_INCLUDE_DIRS}
-    ${Boost_INCLUDE_DIRS}
+ament_auto_add_executable(${PROJECT_NAME}
+  src/main.cpp
 )
 
-catkin_package(
-  LIBRARIES hri_person_manager
-  CATKIN_DEPENDS hri tf2_ros hri_msgs roscpp std_srvs diagnostic_msgs diagnostic_updater
+# Additional install
+install(
+  DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
 )
 
+# Testing
+if(BUILD_TESTING)
+  ament_auto_find_test_dependencies()
+  ament_lint_auto_find_test_dependencies()
 
+  ament_auto_add_gtest(${PROJECT_NAME}_test_1
+    test/test_node_person_manager.cpp
+  )
 
-add_executable(${PROJECT_NAME}_node 
-    src/hri_person_manager.cpp
-    src/person_matcher.cpp
-    src/managed_person.cpp)
+  ament_auto_add_gtest(${PROJECT_NAME}_test_2
+    test/test_person_matcher.cpp
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/test
+  )
 
+endif()
 
-
-## Rename C++ executable without prefix
-set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME ${PROJECT_NAME} PREFIX "")
-
-## Add cmake target dependencies of the executable
-add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-
-target_link_libraries(${PROJECT_NAME}_node
-   ${catkin_LIBRARIES}
-)
-
-
-###########################################################
-# Tests
-
-if(CATKIN_ENABLE_TESTING)
-
-include_directories(
-    src
-)
-
-find_package(rostest REQUIRED)
-
-add_rostest_gmock(test_hri_person_manager test/test_hri_person_manager.test test/test_hri_person_manager.cpp test/mermaid.cpp src/person_matcher.cpp)
-target_include_directories(test_hri_person_manager PRIVATE ${rostest_INCLUDE_DIRS})
-target_link_libraries(test_hri_person_manager ${catkin_LIBRARIES})
-
-endif() # CATKIN_ENABLE_TESTING
-
-
-###########################################################
-# Install
-
-install(TARGETS ${PROJECT_NAME}_node
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
-
-
-## Mark other files for installation (e.g. launch and bag files, etc.)
-# install(FILES
-#   # myfile1
-#   # myfile2
-#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-# )
-
-
+ament_auto_package()

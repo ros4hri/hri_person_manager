@@ -3,34 +3,44 @@
   <name>hri_person_manager</name>
   <version>1.1.0</version>
   <description>Combines information about people's face, body, voice into on consistent representation, following the ROS4HRI conventions</description>
-
   <maintainer email="severin.lemaignan@pal-robotics.com">Séverin Lemaignan</maintainer>
-
-
-  <license>BSD</license>
-
-
-  <!-- Url tags are optional, but multiple are allowed, one per tag -->
-  <!-- Optional attribute type can be: website, bugtracker, or repository -->
-  <!-- Example: -->
-  <!-- <url type="website">http://wiki.ros.org/hri_person_manager</url> -->
-
-
+  <license>Apache License 2.0</license>
   <author email="severin.lemaignan@pal-robotics.com">Séverin Lemaignan</author>
+  <author email="luka.juricic@pal-robotics.com">Luka Juricic</author>
 
+  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+  
+  <build_depend>diagnostic_updater</build_depend>
+  <build_depend>lifecycle_msgs</build_depend>
+  <build_depend>tf2</build_depend>
 
-  <buildtool_depend>catkin</buildtool_depend>
-  <depend>hri</depend>
-  <depend>tf2_ros</depend>
-  <depend>hri_msgs</depend>
-  <depend>std_srvs</depend>
-  <depend>roscpp</depend>
+  <exec_depend>diagnostic_updater</exec_depend>
+  <exec_depend>lifecycle_msgs</exec_depend>
+  <exec_depend>tf2</exec_depend>
+
+  <depend>boost</depend>
   <depend>diagnostic_msgs</depend>
-  <depend>diagnostic_updater</depend>
+  <depend>geometry_msgs</depend>
+  <depend>hri</depend>
+  <depend>hri_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>tf2_ros</depend>
 
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>boost</test_depend>
+  <test_depend>hri</test_depend>
+  <test_depend>hri_msgs</test_depend>
+  <test_depend>lifecycle_msgs</test_depend>
+  <test_depend>rclcpp</test_depend>
+  <test_depend>rosgraph_msgs</test_depend>
+  <test_depend>std_srvs</test_depend>
 
-  <!-- The export tag contains other, unspecified, tags -->
   <export>
-
+      <build_type>ament_cmake</build_type>
   </export>
 </package>

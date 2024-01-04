@@ -1,96 +1,44 @@
-// Copyright 2024 PAL Robotics S.L.
+// Copyright (c) 2024 PAL Robotics S.L. All rights reserved.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//    * Redistributions of source code must retain the above copyright
-//      notice, this list of conditions and the following disclaimer.
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-//    * Redistributions in binary form must reproduce the above copyright
-//      notice, this list of conditions and the following disclaimer in the
-//      documentation and/or other materials provided with the distribution.
-//
-//    * Neither the name of the PAL Robotics S.L. nor the names of its
-//      contributors may be used to endorse or promote products derived from
-//      this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-#ifndef HRI_PERSON_MATCHER_H
-#define HRI_PERSON_MATCHER_H
 
-#include <boost/graph/properties.hpp>
-#include <boost/graph/subgraph.hpp>
+#ifndef HRI_PERSON_MANAGER__PERSON_MATCHER_HPP_
+#define HRI_PERSON_MANAGER__PERSON_MATCHER_HPP_
+
+#include <cmath>
 #include <limits>
 #include <map>
-#include <vector>
-#include <tuple>
 #include <string>
-#include <hri/base.h>
+#include <tuple>
+#include <utility>
+#include <vector>
 
-#include <boost/graph/adjacency_list.hpp>
-#include <boost/pending/property.hpp>
-#include <boost/graph/filtered_graph.hpp>
+#include "boost/graph/adjacency_list.hpp"
+#include "boost/graph/filtered_graph.hpp"
+#include "boost/graph/properties.hpp"
+#include "boost/graph/subgraph.hpp"
+#include "boost/pending/property.hpp"
+#include "boost/range/iterator_range_core.hpp"
+#include "hri/types.hpp"
 
-inline float likelihood2weight(float v)
+namespace hri_person_manager
 {
-  return 1. - v;
-}
 
-inline float weight2likelihood(float v)
-{
-  return 1. - v;
-}
-
-inline float log_likelihood(float v)
-{
-  return log(1. / v);
-}
-
-
-inline float inv_log_likelihood(float v)
-{
-  return 1. / exp(v);
-}
-
-/**
- * Generates a random-looking ID from the hash of an existing ID.
- *
- * Useful to eg generate IDs for anonymous_persons that do not appear to be tied to a
- * particular feature (eg, not named 'anonyous_person_face_123') but still
- * stable when created from the same feature (useful for eg testing)
- */
-inline hri::ID generate_hash_id(hri::ID id, const size_t len = 5)
-{
-  static const std::array<std::string, 26> alphanum{
-    { "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
-      "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z" }
-  };
-  std::string tmp_s;
-  tmp_s.reserve(len);
-
-  auto hash = std::hash<hri::ID>{}(id);
-
-  for (size_t i = 0; i < len; ++i)
-  {
-    tmp_s += alphanum[hash % 10];
-    hash /= 10;
-  }
-
-  return tmp_s;
-}
-
-
+inline float likelihood2weight(float v) {return 1. - v;}
+inline float weight2likelihood(float v) {return 1. - v;}
+inline float log_likelihood(float v) {return log(1. / v);}
+inline float inv_log_likelihood(float v) {return 1. / exp(v);}
 
 struct NodeProps
 {
@@ -113,74 +61,62 @@ struct EdgeProps
   bool computed = false;
 };
 
-template <class T>
-bool compare_likelihoods(T l1, T l2)
-{
-  return std::fabs(l1 - l2) <= std::numeric_limits<T>::epsilon();
-}
-
-// typedef boost::property<boost::edge_weight_t, float> EdgeWeightProperty;
-
 // use boost::setS to forbid parallel edges
-typedef boost::subgraph<boost::adjacency_list<
-    boost::setS, boost::vecS, boost::undirectedS, NodeProps,
-    boost::property<boost::edge_index_t, int, boost::property<boost::edge_weight_t, float, EdgeProps>>>>
-    Graph;
+using Graph =
+  boost::subgraph<
+  boost::adjacency_list<
+    boost::setS, boost::vecS, boost::undirectedS, NodeProps, boost::property<
+      boost::edge_index_t, int, boost::property<boost::edge_weight_t, float, EdgeProps>>>>;
 
 // sub-graphs are Graph themselves, created via Graph.create_subgraph
 // We attach an 'unsigned int' bitmask `feature_mask` to keep track of the features (face,
 // body, voice, person...) already present in that subgraph.
-typedef std::pair<Graph, unsigned int> Subgraph;
-typedef std::vector<Subgraph> Subgraphs;
+using Subgraph = std::pair<Graph, hri::FeatureType>;
+using Subgraphs = std::vector<Subgraph>;
 
-
-typedef boost::graph_traits<Graph>::vertex_descriptor Node;
-const Node INEXISTANT_VERTEX(-1);
-
-typedef std::vector<Node> Nodes;
+using Node = Graph::vertex_descriptor;
+using Nodes = std::vector<Node>;
+const Node kInexistantNode(-1);
 
 // NodeSet are similar to Subgraph, but they only contain nodes, and are not
 // explicitely tied to a graph. This is used by eg
-// PersonMatcher::build_partitions to create partitions without mutating the
+// PersonMatcher::buildPartitions to create partitions without mutating the
 // internal graph (which would be the case if using subgraphs and
 // create_subgraph)
-typedef std::pair<Nodes, unsigned int> NodeSet;
-typedef std::vector<NodeSet> NodeSets;
+using NodeSet = std::pair<Nodes, hri::FeatureType>;
+using NodeSets = std::vector<NodeSet>;
 
+using Edge = Graph::edge_descriptor;
+using Edges = Graph::edge_iterator;
 
-typedef boost::graph_traits<Graph>::edge_descriptor Edge;
-typedef boost::graph_traits<Graph>::edge_iterator Edges;
-
-typedef std::pair<hri::ID, hri::FeatureType> Feature;
-typedef std::vector<std::tuple<hri::ID, hri::FeatureType, hri::ID, hri::FeatureType, float>> Relations;
+using Feature = std::pair<hri::ID, hri::FeatureType>;
+using Relations =
+  std::vector<std::tuple<hri::ID, hri::FeatureType, hri::ID, hri::FeatureType, float>>;
 
 /** small helper function to get a node by its name.
  *
- * Returns INEXISTANT_VERTEX if the name is not found.
+ * Returns kInexistantNode if the name is not found.
  */
-inline Node get_node_by_name(const std::string& name, const Graph& G)
+inline Node get_node_by_name(const std::string & name, const Graph & graph)
 {
-  for (const auto& n : boost::make_iterator_range(vertices(G)))
-  {
-    if (G[n].valid && G[n].name == name)
-    {
+  for (const auto & n : boost::make_iterator_range(boost::vertices(graph))) {
+    if (boost::get(&NodeProps::valid, graph, n) && boost::get(&NodeProps::name, graph, n) == name) {
       return n;
     }
   }
-  return INEXISTANT_VERTEX;
+  return kInexistantNode;
 }
 
 class PersonMatcher
 {
 public:
-  PersonMatcher(float likelihood_threshold = 0.5, bool random_anonymous_name = true);
+  explicit PersonMatcher(float likelihood_threshold = 0.5, bool random_anonymous_name = true);
 
-  /** sets the likelihood threshold to consider a feature (body, face, voice)
-   * to belong to a person.
+  /** sets the likelihood threshold to consider a feature (body, face, voice) to belong to a person.
    */
-  void set_threshold(float likelihood_threshold)
+  void setThreshold(float likelihood_threshold)
   {
-    threshold = likelihood_threshold;
+    threshold_ = likelihood_threshold;
   }
 
   /** updates the probabilistic relations between one or several features.
@@ -197,12 +133,12 @@ public:
    *
    * Note: calling PersonMatcher::update has no side-effect beyond updating the
    * internal relation graph. No update of the most likely associations is
-   * performed until PersonMatcher::get_all_associations is called.
+   * performed until PersonMatcher::getAllAssociations is called.
    *
    * As such, there is not difference between calling PersonMatcher::update
    * once with several updates in a single vector, or calling
    * PersonMatcher::update several times with eg a single relation, as long as
-   * get_all_associations is not called inbetween.
+   * getAllAssociations is not called inbetween.
    */
   void update(Relations relations, bool create_features_from_candidate_matches = true);
 
@@ -215,87 +151,75 @@ public:
    */
   void reset();
 
-
   /** returns a map with all the currently known persons, with their
    * most likely associations to faces/bodies/voices.
    */
-  std::map<hri::ID, std::map<hri::FeatureType, hri::ID>> get_all_associations();
+  std::map<hri::ID, std::map<hri::FeatureType, hri::ID>> getAllAssociations();
 
   /** returns the most likely associations for a given person.
    *
    * If the person does not exist, throw an out_of_range exception.
    *
    * Note: if you need to query more than one person, it is always more
-   * efficient to use PersonMatcher::get_all_associations instead.
+   * efficient to use PersonMatcher::getAllAssociations instead.
    */
-  std::map<hri::FeatureType, hri::ID> get_association(hri::ID id)
+  std::map<hri::FeatureType, hri::ID> getAssociation(hri::ID id)
   {
-    return get_all_associations().at(id);
+    return getAllAssociations().at(id);
   }
 
   /** returns the current likelihood graph in dot format
    */
-  std::string get_graphviz() const;
+  std::string getGraphviz() const;
 
   /** !! for testing/debugging purposes: expose the raw subgraphs computed
    * by the algorithms.
    *
-   * For production, always use PersonMatcher::get_all_associations instead.
+   * For production, always use PersonMatcher::getAllAssociations instead.
    */
-  Subgraphs get_raw_associations()
+  Subgraphs getRawAssociations()
   {
-    return compute_associations();
+    return computeAssociations();
   }
 
   /** !! for testing/debugging purposes: returns a copy of the internal
    * probability graph, optionally removing anonymous persons.
    *
-   * Note: contrary to PersonMatcher::clear_anonymous_persons, the index of the
+   * Note: contrary to PersonMatcher::clearAnonymousPersons, the index of the
    * next available anonymous ID is *not* updated while removing anonymous
    * nodes.
    *
    */
-  Graph get_internal_graph(bool remove_anonymous = false, bool remove_computed_edges = false) const
+  Graph getInternalGraph(bool remove_anonymous = false, bool remove_computed_edges = false) const
   {
-    return clean_graph_copy(g, remove_anonymous, remove_computed_edges);
+    return cleanGraphCopy(g_, remove_anonymous, remove_computed_edges);
   }
 
   /** !! for testing/bedugging purposes only
    *
    * Cleans the internal graph, by removing all anonymous persons and computed edges.
    */
-  void clean_graph()
+  void cleanGraph()
   {
-    g = clean_graph_copy(g, true, true);
+    g_ = cleanGraphCopy(g_, true, true);
   }
 
 private:
-  Graph g;
-
-  /** creates a copy of the internal graph g with no subgraph and only valid nodes (ie,
-   * non-removed nodes). Optionally, also remove anonymous nodes.
-   */
-  Graph clean_graph_copy(const Graph& graph, bool remove_anonymous = false,
-                         bool remove_computed_edges = false) const;
-
   // used to create FilteredGraph with only valid nodes
   struct ValidNodePredicate
   {  // both edge and vertex
-    bool operator()(Graph::edge_descriptor) const
-    {
-      return true;
-    }  // accept all edges
-    bool operator()(Graph::vertex_descriptor vd) const
-    {
-      return (*g)[vd].valid;
-    }
-    Graph* g;
-  } valid_nodes_predicate{ &g };
+    bool operator()(Graph::edge_descriptor) const {return true;}  // accept all edges
+    bool operator()(Graph::vertex_descriptor vd) const {return (*g)[vd].valid;}
+    Graph * g;
+  } valid_nodes_predicate_{ & g_};
 
   using ActiveGraph = boost::filtered_graph<Graph, ValidNodePredicate, ValidNodePredicate>;
 
-  ActiveGraph active_graph{ g, valid_nodes_predicate, valid_nodes_predicate };
-
+  /** creates a copy of the internal graph g_ with no subgraph and only valid nodes (ie,
+   * non-removed nodes). Optionally, also remove anonymous nodes.
+   */
+  Graph cleanGraphCopy(
+    const Graph & graph, bool remove_anonymous = false, bool remove_computed_edges = false) const;
 
   /** 'Main' algorithm: compute the most likely associations between persons
    * and their body parts (face, voice, body...), and return one
@@ -304,7 +228,7 @@ private:
    * If necessary, creates and add anonymous persons to associations lacking a
    * person.
    *
-   * Note: PersonMatcher::compute_associations *mutates* the internal relations
+   * Note: PersonMatcher::computeAssociations *mutates* the internal relations
    * graph. Specifically, after calling the method:
    * - all edges with a likelihood smaller than 'threshold' are removed
    * - new direct edges might be added between a person and a feature if these
@@ -315,38 +239,31 @@ private:
    *   (valid or not are created.
    *
    * See also:
-   * - PersonMatcher::clean_graph_copy returns a 'clean' copy (ie, with all invalid nodes
-   * removed and no subgraphs of the internal graph. PersonMatcher::compute_associations
+   * - PersonMatcher::cleanGraphCopy returns a 'clean' copy (ie, with all invalid nodes
+   * removed and no subgraphs of the internal graph. PersonMatcher::computeAssociations
    * calls it at the very start.
-   * - PersonMatcher::clear_anonymous_persons to remove anonymous persons that
-   * compute_associations might have created.
+   * - PersonMatcher::clearAnonymousPersons to remove anonymous persons that
+   * computeAssociations might have created.
    */
-  Subgraphs compute_associations();
+  Subgraphs computeAssociations();
 
   /** Deletes all relationships between nodes whose likelihood is below
    * 'threshold'.
    *
-   * This method *does mutate* Graph g.
+   * This method *does mutate* Graph g_.
    */
-  void prune_unlikely_connections();
-
-  bool random_anonymous_name;
+  void pruneUnlikelyConnections();
 
   /**
    * If the provided association does not include a person, create
    * an anonymous person.
    *
-   * Note: this method *does mutate* Graph g if an anonymous person needs to be
+   * Note: this method *does mutate* Graph g_ if an anonymous person needs to be
    * added.
    */
-  void add_anonymous_person(Subgraph& association);
+  void addAnonymousPerson(Subgraph & association);
 
-  void clear_anonymous_persons();
-
-  // Mapping between features and previously used anonymous person ids.
-  // Used to reuse as much as possible the same anonymous IDs for the same
-  // features
-  std::map<std::string, std::string> anonymous_ids_map;
+  void clearAnonymousPersons();
 
   /** this methods returns a anonymous person ID for an association lacking a person.
    *
@@ -354,16 +271,14 @@ private:
    * - check (in alphabetical order) if any of the features of the association has already
    * been associated to an anonymous person in the past
    *   - if so:
-   *        - deletes all entries in anonymous_ids_map with that id, to ensure no other
+   *        - deletes all entries in anonymous_ids_map_ with that id, to ensure no other
    *          association might end up reusing the same id
    *        - assigns the id to all features in this association
    *        - returns the id
    *   - if not:
    *        - generates a new ID, assign it to each features, and returns it.
    */
-  std::string set_get_anonymous_id(std::vector<std::string>);
-
-  int incremental_anon_id = 1;
+  std::string setGetAnonymousId(std::vector<std::string>);
 
   /** Add direct links between a person and its features, iff:
    *  - they are not already directly connected
@@ -373,7 +288,7 @@ private:
    *
    * If the provided association does not include a person, does nothing.
    *
-   * Note: this method *does mutate* Graph g with added computed edges   *
+   * Note: this method *does mutate* Graph g_ with added computed edges   *
    *
    * Algorithm:
    * ----------
@@ -392,21 +307,21 @@ private:
    *  of the graph when removing the edge)
    *
    */
-  void fully_connect_persons(Subgraph& association);
+  void fullyConnectPersons(Subgraph & association);
 
   /** returns all possible (valid) partition of the provided graph.
    *
    * Mutates the provided boost::subgraph (and all its ancestors) to add all
    * the possible partitions.
    * It is highly recommended to regularly remove the subgraph (by eg calling
-   * PersonMatcher::clean_graph_copy), otherwise the number of subgraph might
+   * PersonMatcher::cleanGraphCopy), otherwise the number of subgraph might
    * explode.
    */
-  std::vector<Subgraphs> get_partitions(Graph&);
+  std::vector<Subgraphs> getPartitions(Graph &);
 
-  /** Helper function recursively called by PersonMatcher::get_partitions
+  /** Helper function recursively called by PersonMatcher::getPartitions
    */
-  std::vector<NodeSets> build_partitions(Nodes) const;
+  std::vector<NodeSets> buildPartitions(Nodes) const;
 
   /** The graph partition 'affinity' is the sum of the likelihood of associations accross
    *  all the partition's subgraphs.
@@ -419,11 +334,21 @@ private:
    *      - summing likelihoods along each of the spanning tree edges
    *  - return the total sum
    */
-  float partition_affinity(const Subgraphs& partition) const;
+  float partitionAffinity(const Subgraphs & partition) const;
 
-  void print_partition(const Subgraphs& partition) const;
+  void printPartition(const Subgraphs & partition) const;
 
-  float threshold;
+  Graph g_;
+  ActiveGraph active_graph_{g_, valid_nodes_predicate_, valid_nodes_predicate_};
+  bool random_anonymous_name_;
+  // Mapping between features and previously used anonymous person ids.
+  // Used to reuse as much as possible the same anonymous IDs for the same
+  // features
+  std::map<std::string, std::string> anonymous_ids_map_;
+  int incremental_anon_id_ = 1;
+  float threshold_;
 };
 
-#endif  // HRI_PERSON_MATCHER_H
+}  // namespace hri_person_manager
+
+#endif  // HRI_PERSON_MANAGER__PERSON_MATCHER_HPP_

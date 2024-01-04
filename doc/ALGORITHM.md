@@ -1,7 +1,6 @@
-Person matching algorithm
-=========================
+# Person matching algorithm
 
-# Definitions and requirements
+## Definitions and requirements
 
 **DEFINITION 1**: a *feature* is a face, body, or voice. Accordingly, the *feature
 type* is one of *face*, *body* or *voice*.
@@ -59,8 +58,7 @@ association must be created and and the likelihood of that association will
 remain constant until the association is removed (because one of the two nodes
 disappeared).
 
-
-# Working example
+## Working example
 
 The following diagram represents a possible likelihood graph, built over time be
 receiving 'matches' between features and persons:
@@ -118,10 +116,9 @@ Note also that the connection between `person1` and `voice1` did not orginally
 exist: it is a *computed* edge, added to ensure the relation `person1 <-->
 voice1` is maintained if `body2` disappears.
 
+## Algorithm
 
-# Algorithm
-
-## Main algorithm *compute_associations*
+### Main algorithm *computeAssociations*
 
 Given a probablisitic relation graph,
 
@@ -137,11 +134,11 @@ Given a probablisitic relation graph,
    1. amongst these partitions, select the one of highest affinity
    1. add missing persons as *anonymous persons*
    1. create direct connections between the person and its features within each
-      association (see *fully_connect_persons* algorithm below)
+      association (see *fullyConnectPersons* algorithm below)
 1. return the union of these best partitions over all connected components 
 
 
-## Algorithm *fully_connect_persons*
+### Algorithm *fullyConnectPersons*
 
 Add direct links between a person and its features, iff:
 - they are not already directly connected
@@ -162,7 +159,3 @@ Add direct links between a person and its features, iff:
    step 4. This ensure that features that were disconnected from the rest of the
    graph when removing the edge (because they only belonged to the association
    due to a previously computed edge) are brought back.
-
-
-
-

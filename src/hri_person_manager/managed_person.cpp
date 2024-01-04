@@ -1,409 +1,252 @@
-// Copyright 2024 PAL Robotics S.L.
+// Copyright (c) 2024 PAL Robotics S.L. All rights reserved.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//    * Redistributions of source code must retain the above copyright
-//      notice, this list of conditions and the following disclaimer.
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-//    * Redistributions in binary form must reproduce the above copyright
-//      notice, this list of conditions and the following disclaimer in the
-//      documentation and/or other materials provided with the distribution.
-//
-//    * Neither the name of the PAL Robotics S.L. nor the names of its
-//      contributors may be used to endorse or promote products derived from
-//      this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-#include "managed_person.h"
+
+#include "hri_person_manager/managed_person.hpp"
+
 #include <chrono>
-#include <cmath>
+#include <string>
+#include <variant>
 
-using namespace std;
-using namespace ros;
-using namespace hri;
+#include "hri/types.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/bool.hpp"
+#include "std_msgs/msg/float32.hpp"
+#include "std_msgs/msg/string.hpp"
+#include "tf2/exceptions.h"
+#include "tf2/time.h"
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_broadcaster.h"
 
-ManagedPerson::ManagedPerson(NodeHandle& nh, ID id, tf2_ros::Buffer& tf_buffer,
-                             const string& reference_frame, const string& robot_reference_frame,
-                             float proxemics_dist_personal, float proxemics_dist_social,
-                             float proxemics_dist_public)
-  : _nh(&nh)
-  , _id(id)
-  , _actively_tracked(false)
-  , _tf_reference_frame(reference_frame)
-  , _tf_robot_reference_frame(robot_reference_frame)
-  , _tf_buffer(&tf_buffer)
-  , _had_transform_at_least_once(false)
-  , _had_computed_distance_at_least_once(false)
-  , _loc_confidence(0.)
-  , _loc_confidence_dirty(false)
-  , _anonymous(false)
-  , _last_tf_broadcast_successful(false)
-  , _need_log_tf_broadcast(true)
-  , _last_distance_successful(false)
-  , _need_log_distance(true)
-  , _time_since_last_seen(0)
-  , _proxemics_dist_personal(proxemics_dist_personal)
-  , _proxemics_dist_social(proxemics_dist_social)
-  , _proxemics_dist_public(proxemics_dist_public)
-  , _proxemic_zone(Proxemics::PROXEMICS_UNKNOWN)
+namespace hri_person_manager
 {
-  face_id_pub = _nh->advertise<std_msgs::String>(NS + id + "/face_id", 1, true);
-  body_id_pub = _nh->advertise<std_msgs::String>(NS + id + "/body_id", 1, true);
-  voice_id_pub = _nh->advertise<std_msgs::String>(NS + id + "/voice_id", 1, true);
-  alias_pub = _nh->advertise<std_msgs::String>(NS + id + "/alias", 1, true);
-  anonymous_pub = _nh->advertise<std_msgs::Bool>(NS + id + "/anonymous", 1, true);
-  loc_confidence_pub = _nh->advertise<std_msgs::Float32>(NS + id + "/location_confidence", 1);
-  proxemics_pub = _nh->advertise<std_msgs::String>(NS + id + "/proxemic_space", 1, true);
 
-  setAnonymous((id.rfind(hri::ANONYMOUS, 0) == 0) ? true : false);
+ManagedPerson::ManagedPerson(
+  hri::NodeLikeSharedPtr node_like, hri::ID id, std::shared_ptr<const tf2::BufferCore> tf_buffer,
+  const std::string & reference_frame)
+: node_interfaces_(node_like),
+  kId_(id),
+  actively_tracked_(false),
+  tf_reference_frame_(reference_frame),
+  tf_buffer_(tf_buffer),
+  had_transform_at_least_once_(false),
+  loc_confidence_(0.),
+  loc_confidence_dirty_(false),
+  anonymous_(false),
+  time_since_last_seen_(0)
+{
+  auto default_qos = rclcpp::SystemDefaultsQoS();
+  auto latched_qos = rclcpp::SystemDefaultsQoS().transient_local().reliable();
 
-  _tf_frame = _anonymous ? id : hri::PERSON + id;
+  face_id_pub_ = rclcpp::create_publisher<std_msgs::msg::String>(
+    node_interfaces_.get_node_parameters_interface(), node_interfaces_.get_node_topics_interface(),
+    "/humans/persons/" + kId_ + "/face_id", latched_qos);
+  body_id_pub_ = rclcpp::create_publisher<std_msgs::msg::String>(
+    node_interfaces_.get_node_parameters_interface(), node_interfaces_.get_node_topics_interface(),
+    "/humans/persons/" + kId_ + "/body_id", latched_qos);
+  voice_id_pub_ = rclcpp::create_publisher<std_msgs::msg::String>(
+    node_interfaces_.get_node_parameters_interface(), node_interfaces_.get_node_topics_interface(),
+    "/humans/persons/" + kId_ + "/voice_id", latched_qos);
+  alias_pub_ = rclcpp::create_publisher<std_msgs::msg::String>(
+    node_interfaces_.get_node_parameters_interface(), node_interfaces_.get_node_topics_interface(),
+    "/humans/persons/" + kId_ + "/alias", latched_qos);
+  anonymous_pub_ = rclcpp::create_publisher<std_msgs::msg::Bool>(
+    node_interfaces_.get_node_parameters_interface(), node_interfaces_.get_node_topics_interface(),
+    "/humans/persons/" + kId_ + "/anonymous", latched_qos);
+  loc_confidence_pub_ = rclcpp::create_publisher<std_msgs::msg::Float32>(
+    node_interfaces_.get_node_parameters_interface(), node_interfaces_.get_node_topics_interface(),
+    "/humans/persons/" + kId_ + "/location_confidence", default_qos);
+
+  setAnonymous((kId_.rfind(kAnonymous, 0) == 0) ? true : false);
+
+  tf_frame_ = anonymous_ ? kId_ : kPerson + kId_;
+
+  std::visit(
+    [&](auto && node) {
+      tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(node);
+    }, node_like);
 }
 
 ManagedPerson::~ManagedPerson()
 {
-  ROS_DEBUG_STREAM("Closing all topics related to person <" << _id);
-  face_id_pub.shutdown();
-  body_id_pub.shutdown();
-  voice_id_pub.shutdown();
-  alias_pub.shutdown();
-  anonymous_pub.shutdown();
-  loc_confidence_pub.shutdown();
-  proxemics_pub.shutdown();
+  RCLCPP_DEBUG_STREAM(
+    node_interfaces_.get_node_logging_interface()->get_logger(), "Forgetting person " << kId_);
 }
 
-void ManagedPerson::setFaceId(ID id)
+void ManagedPerson::setFaceId(hri::ID id)
 {
-  if (id != _face_id)
-  {
-    ROS_INFO_STREAM("[person <" << _id << ">] face_id updated to <" << id << ">");
+  if (id != face_id_) {
+    RCLCPP_INFO_STREAM(
+      node_interfaces_.get_node_logging_interface()->get_logger(),
+      "[person <" << kId_ << ">] face_id updated to <" << id << ">");
   }
 
-  _face_id = id;
+  face_id_ = id;
+  std_msgs::msg::String id_msg;
   id_msg.data = id;
-  face_id_pub.publish(id_msg);
+  face_id_pub_->publish(id_msg);
 }
 
-void ManagedPerson::setBodyId(ID id)
+void ManagedPerson::setBodyId(hri::ID id)
 {
-  if (id != _body_id)
-  {
-    ROS_INFO_STREAM("[person <" << _id << ">] body_id updated to <" << id << ">");
+  if (id != body_id_) {
+    RCLCPP_INFO_STREAM(
+      node_interfaces_.get_node_logging_interface()->get_logger(),
+      "[person <" << kId_ << ">] body_id updated to <" << id << ">");
   }
 
-  _body_id = id;
+  body_id_ = id;
+  std_msgs::msg::String id_msg;
   id_msg.data = id;
-  body_id_pub.publish(id_msg);
+  body_id_pub_->publish(id_msg);
 }
 
-void ManagedPerson::setVoiceId(ID id)
+void ManagedPerson::setVoiceId(hri::ID id)
 {
-  if (id != _voice_id)
-  {
-    ROS_INFO_STREAM("[person <" << _id << ">] voice_id updated to <" << id << ">");
+  if (id != voice_id_) {
+    RCLCPP_INFO_STREAM(
+      node_interfaces_.get_node_logging_interface()->get_logger(),
+      "[person <" << kId_ << ">] voice_id updated to <" << id << ">");
   }
-  _voice_id = id;
+  voice_id_ = id;
+  std_msgs::msg::String id_msg;
   id_msg.data = id;
-  voice_id_pub.publish(id_msg);
+  voice_id_pub_->publish(id_msg);
 }
 
 void ManagedPerson::setAnonymous(bool anonymous)
 {
-  if (anonymous && _anonymous != anonymous)
-  {
-    ROS_WARN_STREAM("new anonymous person " << _id);
+  if (anonymous && anonymous_ != anonymous) {
+    RCLCPP_WARN_STREAM(
+      node_interfaces_.get_node_logging_interface()->get_logger(),
+      "new anonymous person " << kId_);
   }
-  _anonymous = anonymous;
+  anonymous_ = anonymous;
+  std_msgs::msg::Bool bool_msg;
   bool_msg.data = anonymous;
-  anonymous_pub.publish(bool_msg);
+  anonymous_pub_->publish(bool_msg);
 }
 
-void ManagedPerson::setAlias(ID id)
+void ManagedPerson::setAlias(hri::ID id)
 {
-  if (id != _alias)
-  {
-    ROS_INFO_STREAM("[person <" << _id << ">] set to be alias of <" << _alias << ">");
+  if (id != alias_) {
+    RCLCPP_INFO_STREAM(
+      node_interfaces_.get_node_logging_interface()->get_logger(),
+      "[person <" << kId_ << ">] set to be alias of <" << alias_ << ">");
   }
-  _alias = id;
+  alias_ = id;
+  std_msgs::msg::String id_msg;
   id_msg.data = id;
-  alias_pub.publish(id_msg);
+  alias_pub_->publish(id_msg);
 }
 
 void ManagedPerson::setLocationConfidence(float confidence)
 {
-  _loc_confidence = confidence;
+  loc_confidence_ = confidence;
+  std_msgs::msg::Float32 float_msg;
   float_msg.data = confidence;
-  loc_confidence_pub.publish(float_msg);
+  loc_confidence_pub_->publish(float_msg);
 }
 
-
-void ManagedPerson::update(ID face_id, ID body_id, ID voice_id, chrono::milliseconds elapsed_time)
+void ManagedPerson::update(
+  hri::ID face_id, hri::ID body_id, hri::ID voice_id, std::chrono::milliseconds elapsed_time)
 {
   // a person is considered 'actively tracked' if at least one of its face/body/voice is tracked
-  _actively_tracked = !face_id.empty() || !body_id.empty() || !voice_id.empty();
+  actively_tracked_ = !face_id.empty() || !body_id.empty() || !voice_id.empty();
 
   setFaceId(face_id);
   setBodyId(body_id);
   setVoiceId(voice_id);
 
-  if (_actively_tracked)
-  {
-    _time_since_last_seen = chrono::milliseconds(0);
-    if (_loc_confidence != 1.)
-    {
-      _loc_confidence = 1.;
-      _loc_confidence_dirty = true;
+  if (actively_tracked_) {
+    time_since_last_seen_ = std::chrono::milliseconds(0);
+    if (!compare_floats(loc_confidence_, 1.f)) {
+      loc_confidence_ = 1.;
+      loc_confidence_dirty_ = true;
     }
-  }
-  else  // *not* actively tracked
-  {
-    if (_time_since_last_seen > LIFETIME_UNTRACKED_PERSON)
-    {
-      if (_loc_confidence != 0.)
-      {
-        _loc_confidence = 0.;
-        _loc_confidence_dirty = true;
-        ROS_WARN_STREAM("[person <" << _id << ">] not seen for more than "
-                                    << LIFETIME_UNTRACKED_PERSON.count()
-                                    << ". Not publishing tf frame anymore.");
+  } else {  // *not* actively tracked
+    if (time_since_last_seen_ > kLifetimeUntrackedPerson) {
+      if (!compare_floats(loc_confidence_, 0.f)) {
+        loc_confidence_ = 0.;
+        loc_confidence_dirty_ = true;
+        RCLCPP_WARN_STREAM(
+          node_interfaces_.get_node_logging_interface()->get_logger(),
+          "[person <" << kId_ << ">] not seen for more than " << kLifetimeUntrackedPerson.count()
+                      << ". Not publishing tf frame anymore.");
       }
-    }
-    else  // not tracked, but lifetime *not yet expired*
-    {
-      _time_since_last_seen += elapsed_time;
-      _loc_confidence = 1. - _time_since_last_seen / LIFETIME_UNTRACKED_PERSON;
-      _loc_confidence_dirty = true;
+    } else {  // not tracked, but lifetime *not yet expired*
+      time_since_last_seen_ += elapsed_time;
+      loc_confidence_ = 1. - time_since_last_seen_ / kLifetimeUntrackedPerson;
+      loc_confidence_dirty_ = true;
     }
   }
 
-
-
-  if (_loc_confidence_dirty)
-  {
-    setLocationConfidence(_loc_confidence);
-    _loc_confidence_dirty = false;
+  if (loc_confidence_dirty_) {
+    setLocationConfidence(loc_confidence_);
+    loc_confidence_dirty_ = false;
   }
 
   publishFrame();
-}
-
-void ManagedPerson::setProxemics(const string& target_frame)
-{
-  float distance = 0.f;
-  try
-  {
-    auto transform =
-        _tf_buffer->lookupTransform(_tf_robot_reference_frame, target_frame, ros::Time(0));
-
-    distance = sqrt(transform.transform.translation.x * transform.transform.translation.x +
-                    transform.transform.translation.y * transform.transform.translation.y +
-                    transform.transform.translation.z * transform.transform.translation.z);
-
-    if (distance <= _proxemics_dist_personal)
-    {
-      _proxemic_zone = Proxemics::PROXEMICS_PERSONAL;
-    }
-    else
-    {
-      if (distance <= _proxemics_dist_social)
-      {
-        _proxemic_zone = Proxemics::PROXEMICS_SOCIAL;
-      }
-      else
-      {
-        if (_proxemics_dist_public <= 0 || distance <= _proxemics_dist_public)
-        {
-          _proxemic_zone = Proxemics::PROXEMICS_PUBLIC;
-        }
-        else
-        {
-          _proxemic_zone = Proxemics::PROXEMICS_UNKNOWN;
-        }
-      }
-    }
-  }
-  catch (tf2::TransformException& ex)
-  {
-    ROS_WARN("%s", ex.what());
-    _proxemic_zone = Proxemics::PROXEMICS_UNKNOWN;
-  }
-
-  std_msgs::String proxemic_msg;
-  proxemic_msg.data = PROXEMICS.at(_proxemic_zone);
-  proxemics_pub.publish(proxemic_msg);
 }
 
 void ManagedPerson::publishFrame()
 {
   /////////////////////////////////////////////
   // publish TF frame of the person
+  std::string target_frame;
 
-
-  string target_frame;
-
-  if (!_face_id.empty())
-  {
-    target_frame = string("face_") + _face_id;
-  }
-  else if (!_body_id.empty())
-  {
-    target_frame = string("head_") + _body_id;
-  }
-  else if (!_voice_id.empty())
-  {
-    target_frame = string("voice_") + _voice_id;
+  if (!face_id_.empty()) {
+    target_frame = std::string("face_") + face_id_;
+  } else if (!body_id_.empty()) {
+    target_frame = std::string("head_") + body_id_;
+  } else if (!voice_id_.empty()) {
+    target_frame = std::string("voice_") + voice_id_;
   }
 
-  /////////////// BROADCASTING OF PERSON FRAME
-  if (!target_frame.empty())
-  {
-    if (_tf_buffer->canTransform(_tf_reference_frame, target_frame, ros::Time(0)))
-    {
-      //     log management
-      if (!_last_tf_broadcast_successful)
-      {
-        _need_log_tf_broadcast = true;
-        _last_tf_broadcast_successful = true;
-      }
-      if (_need_log_tf_broadcast)
-      {
-        ROS_INFO_STREAM("[person <" << _id << ">] broadcast transform "
-                                    << _tf_reference_frame << " <-> " << target_frame);
-        _need_log_tf_broadcast = false;
-      }
-      //////////////////////////
+  if (!target_frame.empty()) {
+    try {
+      auto transform = tf_buffer_->lookupTransform(
+        tf_reference_frame_, target_frame, tf2::TimePointZero);
+      transform_.header.stamp = node_interfaces_.clock->get_clock()->now();
+      transform_.child_frame_id = tf_frame_;
 
-      try
-      {
-        _transform =
-            _tf_buffer->lookupTransform(_tf_reference_frame, target_frame, ros::Time(0));
+      tf_broadcaster_->sendTransform(transform_);
+      had_transform_at_least_once_ = true;
 
-        _transform.header.stamp = ros::Time::now();
-        _transform.child_frame_id = _tf_frame;
-
-        _tf_br.sendTransform(_transform);
-        _had_transform_at_least_once = true;
-      }
-      catch (tf2::TransformException& ex)
-      {
-        ROS_WARN("%s", ex.what());
-      }
+      RCLCPP_DEBUG_STREAM_ONCE(
+        node_interfaces_.get_node_logging_interface()->get_logger(),
+        "[person <" << kId_ << ">] broadcast transform " << tf_reference_frame_ << " <-> "
+                    << target_frame);
+    } catch (const tf2::TransformException & ex) {
+      RCLCPP_DEBUG_STREAM(
+        node_interfaces_.get_node_logging_interface()->get_logger(),
+        "failed to transform " << target_frame << " to " << tf_reference_frame_ << ". "
+                               << ex.what());
     }
-    else
-    {
-      //     log management
-      if (_last_tf_broadcast_successful)
-      {
-        _need_log_tf_broadcast = true;
-        _last_tf_broadcast_successful = false;
-      }
-      if (_need_log_tf_broadcast)
-      {
-        ROS_WARN_STREAM("[person <" << _id << ">] can not publish person "
-                                    << "transform (either reference frame <"
-                                    << _tf_reference_frame << "> or target frame <"
-                                    << target_frame << "> are not available)");
-        _need_log_tf_broadcast = false;
-      }
-      //////////////////////////
-    }
-  }
-  else
-  {
-    if (!_had_transform_at_least_once)
-    {
-      ROS_INFO_STREAM("[person <" << _id << ">] no face, body or voice TF frame avail. Can not yet broadcast frame <"
-                                  << _tf_frame << ">.");
-    }
-    else
-    {
+  } else {
+    if (!had_transform_at_least_once_) {
+      RCLCPP_DEBUG_STREAM_ONCE(
+        node_interfaces_.get_node_logging_interface()->get_logger(),
+        "[person <" << kId_ << ">] no face, body or voice TF frame available. "
+                    << "Can not yet broadcast frame <" << tf_frame_ << ">.");
+    } else {
       // publish the last known transform, until loc_confidence == 0
-      if (_loc_confidence > 0)
-      {
-        _transform.header.stamp = ros::Time::now();
-        _tf_br.sendTransform(_transform);
+      if (loc_confidence_ > 0.) {
+        transform_.header.stamp = node_interfaces_.clock->get_clock()->now();
+        tf_broadcaster_->sendTransform(transform_);
       }
     }
   }
 
-  /////////////// COMPUTATION OF DISTANCE TO ROBOT
-  if (!target_frame.empty())
-  {
-    if (_tf_buffer->canTransform(_tf_robot_reference_frame, target_frame, ros::Time(0)))
-    {
-      //     log management
-      if (!_last_distance_successful)
-      {
-        _need_log_distance = true;
-        _last_distance_successful = true;
-      }
-      if (_need_log_distance)
-      {
-        ROS_INFO_STREAM("[person <" << _id << ">] distance to robot computed as "
-                                    << _tf_robot_reference_frame << " <-> " << target_frame);
-        _need_log_distance = false;
-      }
-      ///////////////////////////////
-
-      try
-      {
-        setProxemics(target_frame);
-
-        _had_computed_distance_at_least_once = true;
-      }
-      catch (tf2::TransformException& ex)
-      {
-        _proxemic_zone = Proxemics::PROXEMICS_UNKNOWN;
-        ROS_WARN("%s", ex.what());
-      }
-    }
-    else
-    {
-      _proxemic_zone = Proxemics::PROXEMICS_UNKNOWN;
-
-      //     log management
-      if (_last_distance_successful)
-      {
-        _need_log_distance = true;
-        _last_distance_successful = false;
-      }
-      if (_need_log_distance)
-      {
-        ROS_WARN_STREAM("[person <" << _id << ">] can not compute distance (either reference frame <"
-                                    << _tf_robot_reference_frame << "> or target frame <"
-                                    << target_frame << "> are not available)");
-        _need_log_distance = false;
-      }
-      /////////////////////////////
-    }
-  }
-  else
-  {
-    if (!_had_computed_distance_at_least_once)
-    {
-      ROS_INFO_STREAM("[person <"
-                      << _id << ">] no face, body or voice TF frame avail. Can not yet compute distance to robot.");
-    }
-    else
-    {
-      // publish the last known transform, until loc_confidence == 0
-      if (_loc_confidence > 0 &&
-          _tf_buffer->canTransform(_tf_robot_reference_frame, _tf_frame, ros::Time(0)))
-      {
-        setProxemics(_tf_frame);
-      }
-    }
-  }
-}
+}  // namespace hri_person_manager

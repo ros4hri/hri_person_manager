@@ -1,56 +1,53 @@
-// Copyright 2024 PAL Robotics S.L.
+// Copyright (c) 2024 PAL Robotics S.L. All rights reserved.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//    * Redistributions of source code must retain the above copyright
-//      notice, this list of conditions and the following disclaimer.
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-//    * Redistributions in binary form must reproduce the above copyright
-//      notice, this list of conditions and the following disclaimer in the
-//      documentation and/or other materials provided with the distribution.
-//
-//    * Neither the name of the PAL Robotics S.L. nor the names of its
-//      contributors may be used to endorse or promote products derived from
-//      this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-#include <iostream>
+
+#ifndef HRI_PERSON_MANAGER__MANAGED_PERSON_HPP_
+#define HRI_PERSON_MANAGER__MANAGED_PERSON_HPP_
+
+#include <cmath>
 #include <chrono>
+#include <limits>
+#include <memory>
 #include <string>
-#include <map>
-#include <geometry_msgs/TransformStamped.h>
-#include <ros/node_handle.h>
-#include <ros/publisher.h>
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_broadcaster.h>
-#include <hri/base.h>
 
-#include <std_msgs/String.h>
-#include <std_msgs/Bool.h>
-#include <std_msgs/Float32.h>
+#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "hri/types.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/bool.hpp"
+#include "std_msgs/msg/float32.hpp"
+#include "std_msgs/msg/string.hpp"
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_broadcaster.h"
 
-namespace hri
+namespace hri_person_manager
 {
-const std::string NS("/humans/persons/");
+
+const char kNs[]{"/humans/persons/"};
 
 // after that period of time, the location confidence of the person will be reduced to 0,
 // and its TF transform won't be published anymore
-const std::chrono::seconds LIFETIME_UNTRACKED_PERSON(10);
+const std::chrono::seconds kLifetimeUntrackedPerson(10);
 
-const std::string PERSON("person_");
-const std::string ANONYMOUS("anonymous_person_");
+const char kPerson[]{"person_"};
+const char kAnonymous[]{"anonymous_person_"};
+
+template<class T>
+bool compare_floats(T l1, T l2)
+{
+  return std::fabs(l1 - l2) <= std::numeric_limits<T>::epsilon();
+}
 
 // 0 < personal space =< DEFAULT_PERSONAL_DISTANCE
 const float DEFAULT_PERSONAL_DISTANCE = 1.2;  // m
@@ -78,10 +75,9 @@ const std::map<Proxemics, std::string> PROXEMICS{
 class ManagedPerson
 {
 public:
-  ManagedPerson(ros::NodeHandle& nh, hri::ID id, tf2_ros::Buffer& tf_buffer,
-                const std::string& reference_frame,
-                const std::string& robot_reference_frame, float proxemics_dist_personal,
-                float proxemics_dist_social, float proxemics_dist_public);
+  ManagedPerson(
+    hri::NodeLikeSharedPtr node_like, hri::ID id, std::shared_ptr<const tf2::BufferCore> tf_buffer,
+    const std::string & reference_frame);
 
   ~ManagedPerson();
 
@@ -90,106 +86,59 @@ public:
   void setVoiceId(hri::ID id);
 
   void setAnonymous(bool anonymous);
-  bool anonymous() const
-  {
-    return _anonymous;
-  }
+  bool anonymous() const {return anonymous_;}
 
   void setAlias(hri::ID id);
-  hri::ID alias() const
-  {
-    return _alias;
-  }
-
+  hri::ID alias() const {return alias_;}
 
   void setLocationConfidence(float confidence);
-  float locationConfidence() const
-  {
-    return _loc_confidence;
-  }
+  float locationConfidence() const {return loc_confidence_;}
 
-  hri::ID id() const
-  {
-    return _id;
-  }
+  hri::ID id() const {return kId_;}
 
-  std::string tfFrame() const
-  {
-    return _tf_frame;
-  }
+  std::string tfFrame() const {return tf_frame_;}
 
-  bool activelyTracked() const
-  {
-    return _actively_tracked;
-  }
+  bool activelyTracked() const {return actively_tracked_;}
 
-  Proxemics proxemicZone() const
-  {
-    return _proxemic_zone;
-  }
-
-  void update(hri::ID face_id, hri::ID body_id, hri::ID voice_id,
-              std::chrono::milliseconds elapsed_time);
+  void update(
+    hri::ID face_id, hri::ID body_id, hri::ID voice_id, std::chrono::milliseconds elapsed_time);
 
 private:
   void publishFrame();
 
-  ros::NodeHandle* _nh;
+  hri::NodeInterfaces node_interfaces_;
+  const hri::ID kId_;
 
-  hri::ID _id;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr face_id_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr body_id_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr voice_id_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr alias_pub_;
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr anonymous_pub_;
+  rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr loc_confidence_pub_;
 
-  ros::Publisher face_id_pub;
-  ros::Publisher body_id_pub;
-  ros::Publisher voice_id_pub;
-  ros::Publisher alias_pub;
-  ros::Publisher anonymous_pub;
-  ros::Publisher loc_confidence_pub;
-  ros::Publisher proxemics_pub;
+  bool actively_tracked_;
 
-  bool _actively_tracked;
+  std::string tf_frame_;
+  std::string tf_reference_frame_;
 
-  std::string _tf_frame;
-  std::string _tf_reference_frame;
-  std::string _tf_robot_reference_frame;
+  std::shared_ptr<const tf2::BufferCore> tf_buffer_;
+  std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
-  tf2_ros::Buffer* _tf_buffer;
-  tf2_ros::TransformBroadcaster _tf_br;
+  geometry_msgs::msg::TransformStamped transform_;
+  bool had_transform_at_least_once_;
 
-  geometry_msgs::TransformStamped _transform;
-  bool _had_transform_at_least_once;
-  bool _had_computed_distance_at_least_once;
+  hri::ID face_id_;
+  hri::ID body_id_;
+  hri::ID voice_id_;
+  float loc_confidence_;
+  bool loc_confidence_dirty_;
+  bool anonymous_;
 
-  hri::ID _face_id;
-  hri::ID _body_id;
-  hri::ID _voice_id;
-  float _loc_confidence;
-  bool _loc_confidence_dirty;
-  bool _anonymous;
+  hri::ID alias_;
 
-  // helper variables to track whether or not we should log
-  // TF broadcasting/distance to robot computation
-  // (to avoid spamming the console in case TF transforms
-  // are not available)
-  bool _last_tf_broadcast_successful;
-  bool _need_log_tf_broadcast;
-  bool _last_distance_successful;
-  bool _need_log_distance;
-
-  std_msgs::String id_msg;
-  std_msgs::Float32 float_msg;
-  std_msgs::Bool bool_msg;
-
-  hri::ID _alias;
-
-  std::chrono::milliseconds _time_since_last_seen;
-
-  float _proxemics_dist_personal;
-  float _proxemics_dist_social;
-  float _proxemics_dist_public;
-  Proxemics _proxemic_zone;
-
-  void setProxemics(const std::string& target_frame);
+  std::chrono::milliseconds time_since_last_seen_;
 };
 
+}  // namespace hri_person_manager
 
-}  // namespace hri
+#endif  // HRI_PERSON_MANAGER__MANAGED_PERSON_HPP_
