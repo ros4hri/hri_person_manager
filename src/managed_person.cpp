@@ -1,3 +1,31 @@
+// Copyright 2024 PAL Robotics S.L.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+//    * Redistributions of source code must retain the above copyright
+//      notice, this list of conditions and the following disclaimer.
+//
+//    * Redistributions in binary form must reproduce the above copyright
+//      notice, this list of conditions and the following disclaimer in the
+//      documentation and/or other materials provided with the distribution.
+//
+//    * Neither the name of the PAL Robotics S.L. nor the names of its
+//      contributors may be used to endorse or promote products derived from
+//      this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+
 #include "managed_person.h"
 #include <chrono>
 #include <cmath>
@@ -7,10 +35,8 @@ using namespace ros;
 using namespace hri;
 
 ManagedPerson::ManagedPerson(NodeHandle& nh, ID id, tf2_ros::Buffer& tf_buffer,
-                             const string& reference_frame,
-                             const string& robot_reference_frame,
-                             float proxemics_dist_personal,
-                             float proxemics_dist_social,
+                             const string& reference_frame, const string& robot_reference_frame,
+                             float proxemics_dist_personal, float proxemics_dist_social,
                              float proxemics_dist_public)
   : _nh(&nh)
   , _id(id)
@@ -171,48 +197,48 @@ void ManagedPerson::update(ID face_id, ID body_id, ID voice_id, chrono::millisec
 
 void ManagedPerson::setProxemics(const string& target_frame)
 {
-    float distance = 0.f;
-    try
+  float distance = 0.f;
+  try
+  {
+    auto transform =
+        _tf_buffer->lookupTransform(_tf_robot_reference_frame, target_frame, ros::Time(0));
+
+    distance = sqrt(transform.transform.translation.x * transform.transform.translation.x +
+                    transform.transform.translation.y * transform.transform.translation.y +
+                    transform.transform.translation.z * transform.transform.translation.z);
+
+    if (distance < _proxemics_dist_personal)
     {
-        auto transform =
-            _tf_buffer->lookupTransform(_tf_robot_reference_frame, target_frame, ros::Time(0));
-
-        distance = sqrt(
-                transform.transform.translation.x * transform.transform.translation.x +
-                transform.transform.translation.y * transform.transform.translation.y +
-                transform.transform.translation.z * transform.transform.translation.z
-                );
-
-        if (distance < _proxemics_dist_personal) {
-            _proxemic_zone = Proxemics::PROXEMICS_PERSONAL;
-        }
-        else 
+      _proxemic_zone = Proxemics::PROXEMICS_PERSONAL;
+    }
+    else
+    {
+      if (distance < _proxemics_dist_social)
+      {
+        _proxemic_zone = Proxemics::PROXEMICS_SOCIAL;
+      }
+      else
+      {
+        if (_proxemics_dist_public <= 0 || distance < _proxemics_dist_public)
         {
-            if (distance < _proxemics_dist_social) {
-                _proxemic_zone = Proxemics::PROXEMICS_SOCIAL;
-            }
-            else 
-            {
-                if (_proxemics_dist_public <= 0 ||
-                    distance < _proxemics_dist_public) {
-                    _proxemic_zone = Proxemics::PROXEMICS_PUBLIC;
-                }
-                else {
-                    _proxemic_zone = Proxemics::PROXEMICS_UNKNOWN;
-                }
-            }
+          _proxemic_zone = Proxemics::PROXEMICS_PUBLIC;
         }
+        else
+        {
+          _proxemic_zone = Proxemics::PROXEMICS_UNKNOWN;
+        }
+      }
     }
-    catch (tf2::TransformException ex)
-    {
-        ROS_WARN("%s", ex.what());
-        _proxemic_zone = Proxemics::PROXEMICS_UNKNOWN;
-    }
+  }
+  catch (tf2::TransformException ex)
+  {
+    ROS_WARN("%s", ex.what());
+    _proxemic_zone = Proxemics::PROXEMICS_UNKNOWN;
+  }
 
-    std_msgs::String proxemic_msg;
-    proxemic_msg.data = PROXEMICS.at(_proxemic_zone);
-    proxemics_pub.publish(proxemic_msg);
-
+  std_msgs::String proxemic_msg;
+  proxemic_msg.data = PROXEMICS.at(_proxemic_zone);
+  proxemics_pub.publish(proxemic_msg);
 }
 
 void ManagedPerson::publishFrame()
@@ -294,7 +320,7 @@ void ManagedPerson::publishFrame()
                                        << _tf_robot_reference_frame << " <-> " << target_frame);
       try
       {
-          setProxemics(target_frame);
+        setProxemics(target_frame);
 
         _had_computed_distance_at_least_once = true;
       }
@@ -316,16 +342,17 @@ void ManagedPerson::publishFrame()
   {
     if (!_had_computed_distance_at_least_once)
     {
-      ROS_INFO_STREAM_ONCE("[person <" << _id << ">] no face, body or voice TF frame avail. Can not yet compute distance to robot.");
+      ROS_INFO_STREAM_ONCE(
+          "[person <" << _id << ">] no face, body or voice TF frame avail. Can not yet compute distance to robot.");
     }
     else
     {
       // publish the last known transform, until loc_confidence == 0
-      if (_loc_confidence > 0 && _tf_buffer->canTransform(_tf_robot_reference_frame, _tf_frame, ros::Time(0)))
+      if (_loc_confidence > 0 &&
+          _tf_buffer->canTransform(_tf_robot_reference_frame, _tf_frame, ros::Time(0)))
       {
-          setProxemics(_tf_frame);
+        setProxemics(_tf_frame);
       }
     }
   }
 }
-
