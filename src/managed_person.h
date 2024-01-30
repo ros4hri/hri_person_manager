@@ -159,6 +159,15 @@ private:
   bool _loc_confidence_dirty;
   bool _anonymous;
 
+  // helper variables to track whether or not we should log
+  // TF broadcasting/distance to robot computation
+  // (to avoid spamming the console in case TF transforms
+  // are not available)
+  bool _last_tf_broadcast_successful;
+  bool _need_log_tf_broadcast;
+  bool _last_distance_successful;
+  bool _need_log_distance;
+
   std_msgs::String id_msg;
   std_msgs::Float32 float_msg;
   std_msgs::Bool bool_msg;

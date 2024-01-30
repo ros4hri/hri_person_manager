@@ -49,6 +49,10 @@ ManagedPerson::ManagedPerson(NodeHandle& nh, ID id, tf2_ros::Buffer& tf_buffer,
   , _loc_confidence(0.)
   , _loc_confidence_dirty(false)
   , _anonymous(false)
+  , _last_tf_broadcast_successful(false)
+  , _need_log_tf_broadcast(true)
+  , _last_distance_successful(false)
+  , _need_log_distance(true)
   , _time_since_last_seen(0)
   , _proxemics_dist_personal(proxemics_dist_personal)
   , _proxemics_dist_social(proxemics_dist_social)
@@ -267,8 +271,20 @@ void ManagedPerson::publishFrame()
   {
     if (_tf_buffer->canTransform(_tf_reference_frame, target_frame, ros::Time(0)))
     {
-      ROS_INFO_STREAM_ONCE("[person <" << _id << ">] broadcast transform "
-                                       << _tf_reference_frame << " <-> " << target_frame);
+      //     log management
+      if (!_last_tf_broadcast_successful)
+      {
+        _need_log_tf_broadcast = true;
+        _last_tf_broadcast_successful = true;
+      }
+      if (_need_log_tf_broadcast)
+      {
+        ROS_INFO_STREAM("[person <" << _id << ">] broadcast transform "
+                                    << _tf_reference_frame << " <-> " << target_frame);
+        _need_log_tf_broadcast = false;
+      }
+      //////////////////////////
+
       try
       {
         _transform =
@@ -287,17 +303,29 @@ void ManagedPerson::publishFrame()
     }
     else
     {
-      ROS_INFO_STREAM_ONCE("[person <" << _id << ">] can not publish transform (either reference frame <"
-                                       << _tf_reference_frame << "> or target frame <"
-                                       << target_frame << "> are not available)");
+      //     log management
+      if (_last_tf_broadcast_successful)
+      {
+        _need_log_tf_broadcast = true;
+        _last_tf_broadcast_successful = false;
+      }
+      if (_need_log_tf_broadcast)
+      {
+        ROS_WARN_STREAM("[person <" << _id << ">] can not publish person "
+                                    << "transform (either reference frame <"
+                                    << _tf_reference_frame << "> or target frame <"
+                                    << target_frame << "> are not available)");
+        _need_log_tf_broadcast = false;
+      }
+      //////////////////////////
     }
   }
   else
   {
     if (!_had_transform_at_least_once)
     {
-      ROS_INFO_STREAM_ONCE("[person <" << _id << ">] no face, body or voice TF frame avail. Can not yet broadcast frame <"
-                                       << _tf_frame << ">.");
+      ROS_INFO_STREAM("[person <" << _id << ">] no face, body or voice TF frame avail. Can not yet broadcast frame <"
+                                  << _tf_frame << ">.");
     }
     else
     {
@@ -315,8 +343,20 @@ void ManagedPerson::publishFrame()
   {
     if (_tf_buffer->canTransform(_tf_robot_reference_frame, target_frame, ros::Time(0)))
     {
-      ROS_INFO_STREAM_ONCE("[person <" << _id << ">] distance to robot computed as "
-                                       << _tf_robot_reference_frame << " <-> " << target_frame);
+      //     log management
+      if (!_last_distance_successful)
+      {
+        _need_log_distance = true;
+        _last_distance_successful = true;
+      }
+      if (_need_log_distance)
+      {
+        ROS_INFO_STREAM("[person <" << _id << ">] distance to robot computed as "
+                                    << _tf_robot_reference_frame << " <-> " << target_frame);
+        _need_log_distance = false;
+      }
+      ///////////////////////////////
+
       try
       {
         setProxemics(target_frame);
@@ -332,17 +372,29 @@ void ManagedPerson::publishFrame()
     else
     {
       _proxemic_zone = Proxemics::PROXEMICS_UNKNOWN;
-      ROS_INFO_STREAM_ONCE("[person <" << _id << ">] can not compute distance (either reference frame <"
-                                       << _tf_robot_reference_frame << "> or target frame <"
-                                       << target_frame << "> are not available)");
+
+      //     log management
+      if (_last_distance_successful)
+      {
+        _need_log_distance = true;
+        _last_distance_successful = false;
+      }
+      if (_need_log_distance)
+      {
+        ROS_WARN_STREAM("[person <" << _id << ">] can not compute distance (either reference frame <"
+                                    << _tf_robot_reference_frame << "> or target frame <"
+                                    << target_frame << "> are not available)");
+        _need_log_distance = false;
+      }
+      /////////////////////////////
     }
   }
   else
   {
     if (!_had_computed_distance_at_least_once)
     {
-      ROS_INFO_STREAM_ONCE(
-          "[person <" << _id << ">] no face, body or voice TF frame avail. Can not yet compute distance to robot.");
+      ROS_INFO_STREAM("[person <"
+                      << _id << ">] no face, body or voice TF frame avail. Can not yet compute distance to robot.");
     }
     else
     {
