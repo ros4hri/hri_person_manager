@@ -33,6 +33,8 @@
 
 #include <ros/ros.h>
 #include <std_srvs/Empty.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <tf2_ros/transform_broadcaster.h>
 
 #include "hri/hri.h"
 #include "hri/base.h"
@@ -44,6 +46,7 @@
 using namespace hri;
 using namespace std;
 using namespace ros;
+using namespace tf2_ros;
 
 // waiting time for the libhri callback to process their inputs
 #define WAIT(X) std::this_thread::sleep_for(std::chrono::milliseconds(X))
@@ -61,6 +64,33 @@ void run_mermaid_tests(string path);
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void publish_feature_position(tf2_ros::TransformBroadcaster& br, const std::string& frame,
+                              float x, float y = 0., float z = 0.,
+                              const std::string& base_frame = "base_link")
+{
+  // publish the face's pose
+  geometry_msgs::TransformStamped transform;
+  transform.header.stamp = ros::Time::now() - ros::Duration(0.1);
+  transform.header.frame_id = base_frame;
+  transform.child_frame_id = frame;
+  transform.transform.translation.x = x;
+  transform.transform.translation.y = y;
+  transform.transform.translation.z = z;
+  transform.transform.rotation.w = 1;
+
+
+  // need to send the transform *2 times* so that TF can interpolate
+  // the timestamp of future lookups *must* be in the published interval -> we
+  // set the timestamp of the 2nd transform one second in the future to leave
+  // time for the unittest to complete & query TF as much as needed.
+  br.sendTransform(transform);
+  WAIT(50);
+  transform.header.stamp = ros::Time::now() + ros::Duration(1.);
+  br.sendTransform(transform);
+}
+
+
 
 TEST(hri_person_matcher, BasicAssociationModel)
 {
@@ -328,6 +358,125 @@ TEST(hri_person_manager, ROSNode)
 
   spinner.stop();
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+TEST(hri_person_manager, Proxemics)
+{
+  NodeHandle nh;
+
+  ros::AsyncSpinner spinner(1);
+  spinner.start();
+
+  ros::ServiceClient reset_srv = nh.serviceClient<std_srvs::Empty>("/hri_person_manager/reset");
+  // clear the hri_person_manager
+  std_srvs::Empty empty;
+  reset_srv.call(empty);
+  WAIT(100);
+
+  tf2_ros::TransformBroadcaster br;
+
+  vector<string> personal_space;
+  vector<string> social_space;
+  vector<string> public_space;
+
+  Subscriber personal_prox_sub =
+      nh.subscribe<hri_msgs::IdsList>("/humans/persons/in_personal_space", 1,
+                                      [&personal_space](hri_msgs::IdsListConstPtr people) -> void
+                                      { personal_space = people->ids; });
+  Subscriber social_prox_sub =
+      nh.subscribe<hri_msgs::IdsList>("/humans/persons/in_social_space", 1,
+                                      [&social_space](hri_msgs::IdsListConstPtr people) -> void
+                                      { social_space = people->ids; });
+  Subscriber public_prox_sub =
+      nh.subscribe<hri_msgs::IdsList>("/humans/persons/in_public_space", 1,
+                                      [&public_space](hri_msgs::IdsListConstPtr people) -> void
+                                      { public_space = people->ids; });
+
+
+
+  HRIListener hri_listener;
+  auto face_pub = nh.advertise<hri_msgs::IdsList>("/humans/faces/tracked", 1, true);
+  auto ids = hri_msgs::IdsList();
+
+  WAIT(100);
+
+  map<hri::ID, tuple<float, Proxemics>> test_faces = {
+    { "f1", { DEFAULT_PERSONAL_DISTANCE - 0.1, PROXEMICS_PERSONAL } },
+    { "f2", { DEFAULT_PERSONAL_DISTANCE, PROXEMICS_PERSONAL } },
+    { "f3", { DEFAULT_PERSONAL_DISTANCE + 0.1, PROXEMICS_SOCIAL } },
+    { "f4", { DEFAULT_SOCIAL_DISTANCE - 0.1, PROXEMICS_SOCIAL } },
+    { "f5", { DEFAULT_SOCIAL_DISTANCE, PROXEMICS_SOCIAL } },
+    { "f6", { DEFAULT_SOCIAL_DISTANCE + 0.1, PROXEMICS_PUBLIC } },
+    { "f7", { DEFAULT_PUBLIC_DISTANCE - 0.1, PROXEMICS_PUBLIC } },
+    { "f8", { DEFAULT_PUBLIC_DISTANCE + 0.1, PROXEMICS_UNKNOWN } },
+  };
+
+  for (auto const& face : test_faces)
+  {
+    auto& name = face.first;
+    auto person_name = "anonymous_person_" + generate_hash_id(name);
+    auto frame = "face_" + name;
+    float dist = get<0>(face.second);
+    auto proxemics = get<1>(face.second);
+
+    ROS_WARN_STREAM("Testing face " << name << " at distance " << dist
+                                    << "m from the robot -> expecting proximal zone '"
+                                    << PROXEMICS.at(proxemics) << "'.");
+
+    ids.ids = { name };
+    face_pub.publish(ids);
+    // wait for lihri to pick up the new face
+    WAIT(200);
+    publish_feature_position(br, frame, dist);
+    WAIT(100);
+
+    switch (proxemics)
+    {
+      case PROXEMICS_PERSONAL:
+        ASSERT_TRUE(find(personal_space.begin(), personal_space.end(), person_name) !=
+                    personal_space.end());
+        ASSERT_FALSE(find(social_space.begin(), social_space.end(), person_name) !=
+                     social_space.end());
+        ASSERT_FALSE(find(public_space.begin(), public_space.end(), person_name) !=
+                     public_space.end());
+        break;
+      case PROXEMICS_SOCIAL:
+        ASSERT_FALSE(find(personal_space.begin(), personal_space.end(), person_name) !=
+                     personal_space.end());
+        ASSERT_TRUE(find(social_space.begin(), social_space.end(), person_name) !=
+                    social_space.end());
+        ASSERT_FALSE(find(public_space.begin(), public_space.end(), person_name) !=
+                     public_space.end());
+        break;
+      case PROXEMICS_PUBLIC:
+        ASSERT_FALSE(find(personal_space.begin(), personal_space.end(), person_name) !=
+                     personal_space.end());
+        ASSERT_FALSE(find(social_space.begin(), social_space.end(), person_name) !=
+                     social_space.end());
+        ASSERT_TRUE(find(public_space.begin(), public_space.end(), person_name) !=
+                    public_space.end());
+        break;
+      case PROXEMICS_UNKNOWN:
+        ASSERT_FALSE(find(personal_space.begin(), personal_space.end(), person_name) !=
+                     personal_space.end());
+        ASSERT_FALSE(find(social_space.begin(), social_space.end(), person_name) !=
+                     social_space.end());
+        ASSERT_FALSE(find(public_space.begin(), public_space.end(), person_name) !=
+                     public_space.end());
+        break;
+    }
+
+    personal_space.clear();
+    social_space.clear();
+    public_space.clear();
+  }
+
+  spinner.stop();
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
