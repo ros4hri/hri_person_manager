@@ -230,7 +230,7 @@ void ManagedPerson::setProxemics(const string& target_frame)
       }
     }
   }
-  catch (tf2::TransformException ex)
+  catch (tf2::TransformException& ex)
   {
     ROS_WARN("%s", ex.what());
     _proxemic_zone = Proxemics::PROXEMICS_UNKNOWN;
@@ -248,7 +248,6 @@ void ManagedPerson::publishFrame()
 
 
   string target_frame;
-  float distance = 0.f;
 
   if (!_face_id.empty())
   {
@@ -281,7 +280,7 @@ void ManagedPerson::publishFrame()
         _tf_br.sendTransform(_transform);
         _had_transform_at_least_once = true;
       }
-      catch (tf2::TransformException ex)
+      catch (tf2::TransformException& ex)
       {
         ROS_WARN("%s", ex.what());
       }
@@ -324,7 +323,7 @@ void ManagedPerson::publishFrame()
 
         _had_computed_distance_at_least_once = true;
       }
-      catch (tf2::TransformException ex)
+      catch (tf2::TransformException& ex)
       {
         _proxemic_zone = Proxemics::PROXEMICS_UNKNOWN;
         ROS_WARN("%s", ex.what());

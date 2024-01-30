@@ -220,7 +220,7 @@ void print_associations(const Graph &_G)
 {
   Graph G(_G);
 
-  std::vector<int> component(num_vertices(G));  // component map
+  std::vector<size_t> component(num_vertices(G));  // component map
   auto nb_components = boost::connected_components(G, &component[0]);
 
   vector<Graph> connected_components;
@@ -264,20 +264,20 @@ void run_test(const string &test_name, PersonMatcher &input, const Graph &graph,
       // isomorphic to a subgraph of 'graph', once to check to opposite.
       vf2_subgraph_iso(
           input_g, graph, my_callback(), vos,
-          boost::edges_equivalent([&input_g, &graph](const Edge &e1, const Edge &e2) {
-            return compare_likelihoods(input_g[e1].likelihood, graph[e2].likelihood);
-          }).vertices_equivalent([&input_g, &graph](const Node &n1, const Node &n2) {
-            return input_g[n1].name == graph[n2].name;
-          })) &&
+          boost::edges_equivalent(
+              [&input_g, &graph](const Edge &e1, const Edge &e2)
+              { return compare_likelihoods(input_g[e1].likelihood, graph[e2].likelihood); })
+              .vertices_equivalent([&input_g, &graph](const Node &n1, const Node &n2)
+                                   { return input_g[n1].name == graph[n2].name; })) &&
 
       // cout << "B->A" << endl;
       vf2_subgraph_iso(
           graph, input_g, my_callback(), vos,
-          boost::edges_equivalent([&graph, &input_g](const Edge &e1, const Edge &e2) {
-            return compare_likelihoods(input_g[e2].likelihood, graph[e1].likelihood);
-          }).vertices_equivalent([&graph, &input_g](const Node &n1, const Node &n2) {
-            return input_g[n2].name == graph[n1].name;
-          }))
+          boost::edges_equivalent(
+              [&graph, &input_g](const Edge &e1, const Edge &e2)
+              { return compare_likelihoods(input_g[e2].likelihood, graph[e1].likelihood); })
+              .vertices_equivalent([&graph, &input_g](const Node &n1, const Node &n2)
+                                   { return input_g[n2].name == graph[n1].name; }))
 
   )
   {
@@ -296,32 +296,48 @@ void run_test(const string &test_name, PersonMatcher &input, const Graph &graph,
     if (num_vertices(final_graph) == num_vertices(output) &&
         // same as above, needs to run the VF2 algorithm twice.
         // cout << "A->B" << endl;
-        vf2_subgraph_iso(
-            final_graph, output, my_callback(), vos,
-            boost::edges_equivalent([&final_graph, &output](const Edge &e1, const Edge &e2) {
-              // cout << "Comparing " << final_graph[e1].likelihood << " to "
-              //     << output[e2].likelihood << endl;
-              // cout << compare_likelihoods(final_graph[e1].likelihood, output[e2].likelihood) << endl;
-              return compare_likelihoods(final_graph[e1].likelihood, output[e2].likelihood);
-            }).vertices_equivalent([&final_graph, &output](const Node &n1, const Node &n2) {
-              // cout << "Comparing " << final_graph[n1].name << " to " << output[n2].name
-              // << endl; cout << (final_graph[n1].name == output[n2].name) << endl;
-              return final_graph[n1].name == output[n2].name;
-            })) &&
+        vf2_subgraph_iso(final_graph, output, my_callback(), vos,
+                         boost::edges_equivalent(
+                             [&final_graph, &output](const Edge &e1, const Edge &e2)
+                             {
+                               // cout << "Comparing " << final_graph[e1].likelihood << " to "
+                               //     << output[e2].likelihood << endl;
+                               // cout << compare_likelihoods(final_graph[e1].likelihood,
+                               // output[e2].likelihood) << endl;
+                               return compare_likelihoods(final_graph[e1].likelihood,
+                                                          output[e2].likelihood);
+                             })
+                             .vertices_equivalent(
+                                 [&final_graph, &output](const Node &n1, const Node &n2)
+                                 {
+                                   // cout << "Comparing " << final_graph[n1].name << " to
+                                   // " << output[n2].name
+                                   // << endl; cout << (final_graph[n1].name ==
+                                   // output[n2].name) << endl;
+                                   return final_graph[n1].name == output[n2].name;
+                                 })) &&
 
         // cout << "B->A" << endl;
-        vf2_subgraph_iso(
-            output, final_graph, my_callback(), vos,
-            boost::edges_equivalent([&output, &final_graph](const Edge &e1, const Edge &e2) {
-              // cout << "Comparing " << final_graph[e2].likelihood << " to "
-              //     << output[e1].likelihood << endl;
-              // cout << compare_likelihoods(final_graph[e2].likelihood, output[e1].likelihood) << endl;
-              return compare_likelihoods(final_graph[e2].likelihood, output[e1].likelihood);
-            }).vertices_equivalent([&output, &final_graph](const Node &n1, const Node &n2) {
-              // cout << "Comparing " << final_graph[n2].name << " to " << output[n1].name
-              // << endl; cout << (final_graph[n2].name == output[n1].name) << endl;
-              return final_graph[n2].name == output[n1].name;
-            })))
+        vf2_subgraph_iso(output, final_graph, my_callback(), vos,
+                         boost::edges_equivalent(
+                             [&output, &final_graph](const Edge &e1, const Edge &e2)
+                             {
+                               // cout << "Comparing " << final_graph[e2].likelihood << " to "
+                               //     << output[e1].likelihood << endl;
+                               // cout << compare_likelihoods(final_graph[e2].likelihood,
+                               // output[e1].likelihood) << endl;
+                               return compare_likelihoods(final_graph[e2].likelihood,
+                                                          output[e1].likelihood);
+                             })
+                             .vertices_equivalent(
+                                 [&output, &final_graph](const Node &n1, const Node &n2)
+                                 {
+                                   // cout << "Comparing " << final_graph[n2].name << " to
+                                   // " << output[n1].name
+                                   // << endl; cout << (final_graph[n2].name ==
+                                   // output[n1].name) << endl;
+                                   return final_graph[n2].name == output[n1].name;
+                                 })))
 
     {
       cout << "✅ TEST SUCCESSFUL" << endl;
@@ -476,4 +492,3 @@ void run_mermaid_tests(string path)
     buffer.push_back(line);
   }
 }
-

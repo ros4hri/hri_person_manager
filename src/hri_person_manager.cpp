@@ -78,13 +78,13 @@ public:
                 bool create_features_from_candidate_matches, float distance_personal_space,
                 float distance_social_space, float distance_public_space)
     : _nh(nh)
+    , tfListener(tfBuffer)
     , _reference_frame(reference_frame)
     , _robot_reference_frame(robot_reference_frame)
     , _distance_personal_space(distance_personal_space)
     , _distance_social_space(distance_social_space)
     , _distance_public_space(distance_public_space)
     , _create_features_from_candidate_matches(create_features_from_candidate_matches)
-    , tfListener(tfBuffer)
     , diag_updater(nh, ros::NodeHandle("~"),
                    " Social perception")  // adding initial space in 'node_name' string
                                           // since diagnostic_updater removes the first char
@@ -119,6 +119,9 @@ public:
 
   bool reset(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res)
   {
+    (void)req;  // unused parameter
+    (void)res;  // unused parameter
+
     ROS_WARN("Clearing all associations between persons, faces, bodies, voices");
     person_matcher.reset();
 
@@ -562,11 +565,12 @@ private:
   float _distance_social_space;
   float _distance_public_space;
 
+  bool _create_features_from_candidate_matches;
+
   diagnostic_updater::Updater diag_updater;
   double proc_time_ms;
 
   ros::Subscriber candidates;
-  bool _create_features_from_candidate_matches;
 };
 
 int main(int argc, char** argv)

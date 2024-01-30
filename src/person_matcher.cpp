@@ -138,6 +138,9 @@ public:
       case tracked_person:
         feat = " [person]";
         break;
+      case invalid:
+        feat = " [invalid]";
+        break;
     }
 
 
@@ -448,8 +451,6 @@ void PersonMatcher::fully_connect_persons(Subgraph& association)
     }
   }
 
-  Node person_orig = get_node_by_name(graph_copy[person].name, graph);
-
   // 1. remove computed edges
   vector<std::tuple<Node, Node, EdgeProps>> computed_edges;
   for (const auto& e : boost::make_iterator_range(edges(graph_copy)))
@@ -643,7 +644,7 @@ Subgraphs PersonMatcher::compute_associations()
   Subgraphs complete_partition;
 
   ////////// Get connected components
-  std::vector<int> component(num_vertices(g));  // component map
+  std::vector<size_t> component(num_vertices(g));  // component map
 
 
 
@@ -692,9 +693,8 @@ Subgraphs PersonMatcher::compute_associations()
                  [min_len](const Subgraphs& elem) { return elem.size() == min_len; });
 
     std::sort(compact_partitions.begin(), compact_partitions.end(),
-              [this](const Subgraphs& e1, const Subgraphs& e2) {
-                return partition_affinity(e1) > partition_affinity(e2);
-              });
+              [this](const Subgraphs& e1, const Subgraphs& e2)
+              { return partition_affinity(e1) > partition_affinity(e2); });
 
     complete_partition.insert(complete_partition.end(), compact_partitions[0].begin(),
                               compact_partitions[0].end());
@@ -900,4 +900,3 @@ string PersonMatcher::get_graphviz() const
 
   return ss.str();
 }
-
