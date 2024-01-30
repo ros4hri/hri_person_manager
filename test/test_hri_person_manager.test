@@ -2,7 +2,7 @@
 
   <arg name="test_args" default=""/>
 
-  <node pkg="hri_person_manager" type="node" name="hri_person_manager" />
+  <node pkg="hri_person_manager" type="hri_person_manager" name="hri_person_manager" />
 
  
  <test test-name="test_hri_person_manager" pkg="hri_person_manager"
