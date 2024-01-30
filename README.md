@@ -101,7 +101,23 @@ Published topics
 
 - `/humans/persons/<person id>/...`: refer to [the REP-155](https://www.ros.org/reps/rep-0155.html#persons) for the list of topics and their semantics
 
-In addition to the topics in the REP, `hri_person_manager` also published:
 
-- `/humans/persons/<person id>/proxemic_space` (type: `std_msgs/String`): one of `unknown`, `personal`, `social`, `public` (based on the ranges defined in the parameter section above)
+### Proxemics
+
+In addition to the standard REP-155 topics, `hri_person_manager` also publishes
+proxemics:
+
+- `/humans/persons/in_{personal|social|public}_space` (type:
+  `hri_msgs/IdsList`): list of the persons currently in each proxemics zone
+  (based on the ranges defined in the parameter section above)
+- `/humans/persons/<person id>/proxemic_space` (type: `std_msgs/String`): one of
+  `unknown`, `personal`, `social`, `public` (based on the ranges defined in the
+  parameter section above)
+
+### Debugging/introspection
+
+- `/humans/graph` (type: `std_msgs/String`): a graph of the current
+  probablisitic 'feature associations' network, in GraphViz format. Useful for
+  debugging and can be plotted using the GraphViz tool.
+
 
