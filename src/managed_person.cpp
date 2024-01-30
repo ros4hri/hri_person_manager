@@ -211,19 +211,19 @@ void ManagedPerson::setProxemics(const string& target_frame)
                     transform.transform.translation.y * transform.transform.translation.y +
                     transform.transform.translation.z * transform.transform.translation.z);
 
-    if (distance < _proxemics_dist_personal)
+    if (distance <= _proxemics_dist_personal)
     {
       _proxemic_zone = Proxemics::PROXEMICS_PERSONAL;
     }
     else
     {
-      if (distance < _proxemics_dist_social)
+      if (distance <= _proxemics_dist_social)
       {
         _proxemic_zone = Proxemics::PROXEMICS_SOCIAL;
       }
       else
       {
-        if (_proxemics_dist_public <= 0 || distance < _proxemics_dist_public)
+        if (_proxemics_dist_public <= 0 || distance <= _proxemics_dist_public)
         {
           _proxemic_zone = Proxemics::PROXEMICS_PUBLIC;
         }

@@ -608,9 +608,12 @@ int main(int argc, char** argv)
   float distance_personal_space;
   float distance_social_space;
   float distance_public_space;
-  ros::param::param<float>("/humans/proxemics/personal_distance", distance_personal_space, 1.2);
-  ros::param::param<float>("/humans/proxemics/social_distance", distance_social_space, 3.6);
-  ros::param::param<float>("/humans/proxemics/public_distance", distance_public_space, 20);
+  ros::param::param<float>("/humans/proxemics/personal_distance", distance_personal_space,
+                           DEFAULT_PERSONAL_DISTANCE);
+  ros::param::param<float>("/humans/proxemics/social_distance", distance_social_space,
+                           DEFAULT_SOCIAL_DISTANCE);
+  ros::param::param<float>("/humans/proxemics/public_distance", distance_public_space,
+                           DEFAULT_PUBLIC_DISTANCE);
 
   ROS_INFO("Proxemics ranges:");
   ROS_INFO_STREAM("- Personal space: from 0m to " << distance_personal_space << "m");

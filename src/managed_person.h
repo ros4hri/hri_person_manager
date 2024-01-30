@@ -52,6 +52,13 @@ const std::chrono::seconds LIFETIME_UNTRACKED_PERSON(10);
 const std::string PERSON("person_");
 const std::string ANONYMOUS("anonymous_person_");
 
+// 0 < personal space =< DEFAULT_PERSONAL_DISTANCE
+const float DEFAULT_PERSONAL_DISTANCE = 1.2;  // m
+// DEFAULT_PERSONAL_DISTANCE < social space =< DEFAULT_SOCIAL_DISTANCE
+const float DEFAULT_SOCIAL_DISTANCE = 3.6;  // m
+// DEFAULT_SOCIAL_DISTANCE < public space =< DEFAULT_PUBLIC_DISTANCE
+const float DEFAULT_PUBLIC_DISTANCE = 20.;  // m
+
 enum Proxemics
 {
   PROXEMICS_UNKNOWN,
