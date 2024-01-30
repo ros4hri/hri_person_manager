@@ -35,6 +35,7 @@
 #include <map>
 #include <vector>
 #include <tuple>
+#include <string>
 #include <hri/base.h>
 
 #include <boost/graph/adjacency_list.hpp>
@@ -60,6 +61,33 @@ inline float log_likelihood(float v)
 inline float inv_log_likelihood(float v)
 {
   return 1. / exp(v);
+}
+
+/**
+ * Generates a random-looking ID from the hash of an existing ID.
+ *
+ * Useful to eg generate IDs for anonymous_persons that do not appear to be tied to a
+ * particular feature (eg, not named 'anonyous_person_face_123') but still
+ * stable when created from the same feature (useful for eg testing)
+ */
+inline hri::ID generate_hash_id(hri::ID id, const size_t len = 5)
+{
+  static const std::array<std::string, 26> alphanum{
+    { "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+      "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z" }
+  };
+  std::string tmp_s;
+  tmp_s.reserve(len);
+
+  auto hash = std::hash<hri::ID>{}(id);
+
+  for (size_t i = 0; i < len; ++i)
+  {
+    tmp_s += alphanum[hash % 10];
+    hash /= 10;
+  }
+
+  return tmp_s;
 }
 
 
