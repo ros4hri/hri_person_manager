@@ -667,7 +667,7 @@ void PersonMatcher::printPartition(const Subgraphs & partition) const
   }
 }
 
-void PersonMatcher::update(Relations relations, bool create_features_from_candidate_matches)
+void PersonMatcher::update(Relations relations)
 {
   hri::ID id1, id2;
   hri::FeatureType type1, type2;
@@ -687,19 +687,12 @@ void PersonMatcher::update(Relations relations, bool create_features_from_candid
     }
 
     if (
-      !create_features_from_candidate_matches && (v1 == kInexistantNode || v2 == kInexistantNode))
+      (type1 != type2) && (
+        (v1 == kInexistantNode && type1 != hri::FeatureType::kPerson) ||
+        (v2 == kInexistantNode && type2 != hri::FeatureType::kPerson)))
     {
-      if (
-        (v1 == kInexistantNode && type1 == hri::FeatureType::kPerson && v2 != kInexistantNode) ||
-        (v2 == kInexistantNode && type2 == hri::FeatureType::kPerson && v1 != kInexistantNode))
-      {
-        std::cout << "~features_from_matches=false, but we are trying to create a new person with "
-                  << "an existing feature -> still create the person." << std::endl;
-      } else {
-        std::cout << "Not updating relation as one of the feature does not exist and "
-                  << "~features_from_matches=false" << std::endl;
-        continue;
-      }
+      std::cout << "Not updating relation as a non-person feature does not exist" << std::endl;
+      continue;
     }
 
     // if needed, create the vertices

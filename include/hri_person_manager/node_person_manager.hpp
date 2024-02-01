@@ -54,6 +54,8 @@ enum class UpdateType
 
 using Association =
   std::tuple<UpdateType, hri::ID, hri::FeatureType, hri::ID, hri::FeatureType, float>;
+using EmptyReq = std_srvs::srv::Empty::Request::SharedPtr;
+using EmptyResp = std_srvs::srv::Empty::Response::SharedPtr;
 using LifecycleCallbackReturn =
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
@@ -77,8 +79,8 @@ private:
   void onVoice(hri::ConstVoicePtr voice);
   void onFeatureLost(hri::ID id);
   void updateDiagnostics();
-  void reset(
-    const std_srvs::srv::Empty::Request::SharedPtr, std_srvs::srv::Empty::Response::SharedPtr);
+  void reset();
+  void reset(const EmptyReq, EmptyResp) {reset();}
   void initializePerson(hri::ID id);
   void publishKnownPersons();
   void publishPersons();

@@ -142,20 +142,23 @@ TEST_F(NodePersonManagerTest, KnownPersons)
   matches_pub_->publish(match);
   spin();
   auto persons = hri_listener_->getPersons();
-  EXPECT_EQ(hri_listener_->getPersons().size(), 1U);
-  ASSERT_TRUE(persons.count("p1"));
-  auto p1 = persons["p1"];
-  EXPECT_FALSE(p1->face())
+  EXPECT_EQ(hri_listener_->getPersons().size(), 0U)
     << "The face has not yet been published -> can not be associated to the person yet.";
-  EXPECT_FALSE(p1->body());
-  EXPECT_FALSE(p1->voice());
 
   ids.ids = {"f1"};
   faces_pub_->publish(ids);
   spin();
+  matches_pub_->publish(match);
+  spin();
+  persons = hri_listener_->getPersons();
+  EXPECT_EQ(hri_listener_->getPersons().size(), 1U);
+  ASSERT_TRUE(persons.count("p1"));
+  auto p1 = persons["p1"];
   ASSERT_TRUE(p1->face())
     << "The face has been published -> should now be associated to the person.";
   EXPECT_EQ(p1->face()->id(), "f1");
+  EXPECT_FALSE(p1->body());
+  EXPECT_FALSE(p1->voice());
 
   ids.ids = {"f1", "f2"};
   faces_pub_->publish(ids);
@@ -185,7 +188,7 @@ TEST_F(NodePersonManagerTest, Reset)
   reset_srv_->async_send_request(empty);
   spin();
 
-  ids.ids = {"f1"};
+  ids.ids = {"f1", "f2"};
   faces_pub_->publish(ids);
   spin();
   match.id1 = "f2";
@@ -213,6 +216,8 @@ TEST_F(NodePersonManagerTest, Reset)
   EXPECT_EQ(hri_listener_->getPersons().size(), 0U);
   EXPECT_FALSE(persons["p1"]->valid()) << "The old pointer should now be invalid";
 
+  ids.ids = {"f1"};
+  faces_pub_->publish(ids);
   matches_pub_->publish(match);
   spin();
   persons = hri_listener_->getPersons();

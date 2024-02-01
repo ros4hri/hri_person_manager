@@ -140,7 +140,7 @@ public:
    * PersonMatcher::update several times with eg a single relation, as long as
    * getAllAssociations is not called inbetween.
    */
-  void update(Relations relations, bool create_features_from_candidate_matches = true);
+  void update(Relations relations);
 
   /** deletes a given ID (be it a person, a face, a body or a voice) from
    * the probabilistic graph.

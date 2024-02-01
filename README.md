@@ -35,11 +35,6 @@ All parameters are loaded in the lifecycle `configuration` transition.
   `hri_person_manager` instead publishes TF frames of humans in `reference_frame`.
   `reference_frame` is usually a 'static' frame (eg `map`), so that if the person moves out of view of the robot
   (and therefore, its position can not be updated anymore), it 'stays' where it was last seen.
-- `features_from_matches` (default: `true`):
-  If set to true, features appearing in a `candidate_matches` message are assumed to be currently tracked,
-  and are added to the features-person graph.
-  If set to false, only features published on `/humans/*/tracked` are considered tracked,
-  and `candidate_matches` for untracked features will be ignored.
 
 ### Topics
 

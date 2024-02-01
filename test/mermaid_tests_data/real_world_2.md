@@ -11,6 +11,14 @@ THRESHOLD: 0.4
 ## INPUT
 
 ```
+face1
+face2
+body1
+body2
+body3
+voice1
+voice2
+voice3
 body3,person2,0.7
 person2,face1,0.9
 face1,body2,0.8
@@ -111,6 +119,7 @@ body1 ---|0.42| person1
 ## INPUT
 
 ```
+body4
 body4,voice1,0.6
 ```
 

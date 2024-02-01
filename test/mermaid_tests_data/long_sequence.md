@@ -111,6 +111,7 @@ body1 ---|0.4| anon2
 ## INPUT
 
 ```
+face2
 face2,person1,0.7
 ```
 
@@ -189,6 +190,7 @@ body1 ---|0.56| person1
 ## INPUT
 
 ```
+face3
 face3,body1,0.8
 face3,person1,0.6
 ```
@@ -249,6 +251,7 @@ face4 ---|0.4| anon3
 ## INPUT
 
 ```
+face4
 face4,person1,0.5
 face4,person2,0.56
 face4,person3,0.61

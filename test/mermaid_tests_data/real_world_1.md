@@ -11,6 +11,12 @@ THRESHOLD: 0.4
 ## INPUT
 
 ```
+f1
+f2
+b1
+b2
+v1
+v3
 f1,p1,0.8
 f1,p2,0.7
 f1,p3,0.5

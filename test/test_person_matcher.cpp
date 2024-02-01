@@ -431,9 +431,10 @@ TEST(PersonMatcherTest, BasicAssociationModel)
   {
     hri_person_manager::PersonMatcher model(0.4);
 
-    EXPECT_ANY_THROW({model.getAssociation("p1");});
+    EXPECT_THROW({model.getAssociation("p1");}, std::out_of_range);
 
     hri_person_manager::Relations data{
+      {"f1", hri::FeatureType::kFace, "f1", hri::FeatureType::kFace, 1.},
       {"p1", hri::FeatureType::kPerson, "f1", hri::FeatureType::kFace, 1.0}};
     model.update(data);
     auto association = model.getAssociation("p1");
@@ -475,7 +476,10 @@ TEST(PersonMatcherTest, BasicAssociationModel)
   {
     hri_person_manager::PersonMatcher model(0.05);
 
-    model.update({{"p1", hri::FeatureType::kPerson, "f1", hri::FeatureType::kFace, 0.1}});
+    hri_person_manager::Relations data{
+      {"f1", hri::FeatureType::kFace, "f1", hri::FeatureType::kFace, 1.},
+      {"p1", hri::FeatureType::kPerson, "f1", hri::FeatureType::kFace, 0.1}};
+    model.update(data);
     auto association = model.getAssociation("p1");
     EXPECT_EQ(association, (std::map<hri::FeatureType, hri::ID>{{hri::FeatureType::kFace, "f1"}}));
     EXPECT_TRUE(association.find(hri::FeatureType::kVoice) == association.end());
@@ -497,6 +501,9 @@ TEST(PersonMatcherTest, AssociationNetwork)
 
   // Test small transitive network, with p1 -> {f1, b1} more likely than p1 -> {f1, b2}
   hri_person_manager::Relations data{
+    {"f1", hri::FeatureType::kFace, "f1", hri::FeatureType::kFace, 1.},
+    {"b1", hri::FeatureType::kBody, "b1", hri::FeatureType::kBody, 1.},
+    {"b2", hri::FeatureType::kBody, "b2", hri::FeatureType::kBody, 1.},
     {"f1", hri::FeatureType::kFace, "b1", hri::FeatureType::kBody, 0.7},
     {"f1", hri::FeatureType::kFace, "b2", hri::FeatureType::kBody, 0.6},
     {"p1", hri::FeatureType::kPerson, "f1", hri::FeatureType::kFace, 0.9}};
@@ -545,6 +552,7 @@ TEST(PersonMatcherTest, ResetEraseIds)
   auto model = hri_person_manager::PersonMatcher(0.4);
 
   hri_person_manager::Relations data{
+    {"f1", hri::FeatureType::kFace, "f1", hri::FeatureType::kFace, 1.},
     {"p1", hri::FeatureType::kPerson, "f1", hri::FeatureType::kFace, 0.9}};
   model.update(data);
   auto association = model.getAssociation("p1");
@@ -555,9 +563,12 @@ TEST(PersonMatcherTest, ResetEraseIds)
   EXPECT_TRUE(association.empty());
 
   model.erase("p1");
-  EXPECT_ANY_THROW({model.getAssociation("p1");});
+  EXPECT_THROW({model.getAssociation("p1");}, std::out_of_range);
 
   data = {
+    {"f1", hri::FeatureType::kFace, "f1", hri::FeatureType::kFace, 1.},
+    {"b1", hri::FeatureType::kBody, "b1", hri::FeatureType::kBody, 1.},
+    {"b2", hri::FeatureType::kBody, "b2", hri::FeatureType::kBody, 1.},
     {"p1", hri::FeatureType::kPerson, "f1", hri::FeatureType::kFace, 0.9},
     {"f1", hri::FeatureType::kFace, "b2", hri::FeatureType::kBody, 0.6},
     {"b1", hri::FeatureType::kBody, "f1", hri::FeatureType::kFace, 0.7}};
@@ -573,15 +584,9 @@ TEST(PersonMatcherTest, ResetEraseIds)
     association, (std::map<hri::FeatureType, hri::ID>{{
       hri::FeatureType::kFace, "f1"}, {hri::FeatureType::kBody, "b2"}}));
 
-  model.update({{"f1", hri::FeatureType::kFace, "b1", hri::FeatureType::kBody, 0.7}});
-  association = model.getAssociation("p1");
-  EXPECT_EQ(
-    association, (std::map<hri::FeatureType, hri::ID>{{
-      hri::FeatureType::kFace, "f1"}, {hri::FeatureType::kBody, "b1"}}));
-
-  model.reset();
-  EXPECT_ANY_THROW({model.getAssociation("p1");});
-
+  data = {
+    {"b1", hri::FeatureType::kBody, "b1", hri::FeatureType::kBody, 1.},
+    {"f1", hri::FeatureType::kFace, "b1", hri::FeatureType::kBody, 0.7}};
   model.update(data);
   association = model.getAssociation("p1");
   EXPECT_EQ(
@@ -589,7 +594,23 @@ TEST(PersonMatcherTest, ResetEraseIds)
       hri::FeatureType::kFace, "f1"}, {hri::FeatureType::kBody, "b1"}}));
 
   model.reset();
-  EXPECT_ANY_THROW({model.getAssociation("p1");});
+  EXPECT_THROW({model.getAssociation("p1");}, std::out_of_range);
+
+  data = {
+    {"f1", hri::FeatureType::kFace, "f1", hri::FeatureType::kFace, 1.},
+    {"b1", hri::FeatureType::kBody, "b1", hri::FeatureType::kBody, 1.},
+    {"b2", hri::FeatureType::kBody, "b2", hri::FeatureType::kBody, 1.},
+    {"p1", hri::FeatureType::kPerson, "f1", hri::FeatureType::kFace, 0.9},
+    {"f1", hri::FeatureType::kFace, "b2", hri::FeatureType::kBody, 0.6},
+    {"b1", hri::FeatureType::kBody, "f1", hri::FeatureType::kFace, 0.7}};
+  model.update(data);
+  association = model.getAssociation("p1");
+  EXPECT_EQ(
+    association, (std::map<hri::FeatureType, hri::ID>{{
+      hri::FeatureType::kFace, "f1"}, {hri::FeatureType::kBody, "b1"}}));
+
+  model.reset();
+  EXPECT_THROW({model.getAssociation("p1");}, std::out_of_range);
 
   model.update(data);
   association = model.getAssociation("p1");

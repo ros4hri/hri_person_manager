@@ -56,12 +56,9 @@ NodePersonManager::NodePersonManager(const rclcpp::NodeOptions & options)
   descriptor.description = "Minimum likelihood to associate a face/body/voice to a given person";
   this->declare_parameter("match_threshold", 0.5, descriptor);
 
-  descriptor.description = "Reference frame for published persons' TF";
+  descriptor.description = "Reference frame for published persons' TF. "
+    "This should usually be a static frame wrt to the robot.";
   this->declare_parameter("reference_frame", "map", descriptor);
-
-  descriptor.description =
-    "Whether to consider matching features not yet published in '/humans/*/tracked'";
-  this->declare_parameter("features_from_matches", true, descriptor);
 
   RCLCPP_INFO(this->get_logger(), "State: Unconfigured");
 }
@@ -69,7 +66,6 @@ NodePersonManager::NodePersonManager(const rclcpp::NodeOptions & options)
 LifecycleCallbackReturn NodePersonManager::on_configure(const rclcpp_lifecycle::State &)
 {
   reference_frame_ = this->get_parameter("reference_frame").as_string();
-  features_from_matches_ = this->get_parameter("features_from_matches").as_bool();
 
   person_matcher_.setThreshold(this->get_parameter("match_threshold").as_double());
 
@@ -120,8 +116,10 @@ LifecycleCallbackReturn NodePersonManager::on_activate(const rclcpp_lifecycle::S
     std::bind(&NodePersonManager::updateDiagnostics, this));
 
   reset_srv_ = this->create_service<std_srvs::srv::Empty>(
-    "~/reset", std::bind(&NodePersonManager::reset, this, _1, _2));
-
+    "~/reset", std::bind(
+      static_cast<void (NodePersonManager::*)(const EmptyReq, EmptyResp)>(
+        &NodePersonManager::reset),
+      this, _1, _2));
   RCLCPP_INFO(this->get_logger(), "State: Active");
   RCLCPP_INFO_STREAM(
     this->get_logger(),
@@ -149,6 +147,7 @@ LifecycleCallbackReturn NodePersonManager::on_shutdown(const rclcpp_lifecycle::S
 
 void NodePersonManager::internal_deactivate()
 {
+  reset();
   reset_srv_.reset();
   diagnostics_timer_.reset();
   persons_timer_.reset();
@@ -164,9 +163,7 @@ void NodePersonManager::internal_deactivate()
 void NodePersonManager::internal_cleanup()
 {}
 
-void NodePersonManager::reset(
-  const std_srvs::srv::Empty::Request::SharedPtr,
-  std_srvs::srv::Empty::Response::SharedPtr)
+void NodePersonManager::reset()
 {
   RCLCPP_WARN(
     this->get_logger(), "Clearing all associations between persons, faces, bodies, voices");
@@ -384,7 +381,7 @@ void NodePersonManager::publishPersons()
           this->get_logger(),
           "- Update relation: " << id1 << " (" << type1 << ") <--> " << id2 << " (" << type2
                                 << "); likelihood=" << likelihood);
-        person_matcher_.update({{id1, type1, id2, type2, likelihood}}, features_from_matches_);
+        person_matcher_.update({{id1, type1, id2, type2, likelihood}});
         break;
     }
   }
