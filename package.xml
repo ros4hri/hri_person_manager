@@ -4,17 +4,20 @@
   <version>1.1.0</version>
   <description>Combines information about people's face, body, voice into on consistent representation, following the ROS4HRI conventions</description>
   <maintainer email="severin.lemaignan@pal-robotics.com">Séverin Lemaignan</maintainer>
+  <maintainer email="luka.juricic@pal-robotics.com">Luka Juricic</maintainer>
   <license>Apache License 2.0</license>
   <author email="severin.lemaignan@pal-robotics.com">Séverin Lemaignan</author>
   <author email="luka.juricic@pal-robotics.com">Luka Juricic</author>
 
   <buildtool_depend>ament_cmake_auto</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
   
   <build_depend>diagnostic_updater</build_depend>
   <build_depend>lifecycle_msgs</build_depend>
   <build_depend>tf2</build_depend>
 
   <exec_depend>diagnostic_updater</exec_depend>
+  <exec_depend>python3-graphviz</exec_depend>
   <exec_depend>lifecycle_msgs</exec_depend>
   <exec_depend>tf2</exec_depend>
 

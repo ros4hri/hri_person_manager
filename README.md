@@ -51,3 +51,8 @@ If the topic message type is not indicated, the ROS4HRI convention is implied.
 - `/humans/persons/tracked`
 - `/humans/graph` ([std_msgs/String](https://github.com/ros2/common_interfaces/blob/humble/std_msgs/msg/String.msg)):
   Most likely graph exoressed in [DOT Language](https://graphviz.org/doc/info/lang.html).
+
+## Visualization
+
+The current graph can be exported on PDF using:
+`ros2 run hri_person_manager show_humans_graph <filename>`

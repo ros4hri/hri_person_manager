@@ -20,9 +20,14 @@ endif()
 
 # Dependencies
 find_package(ament_cmake_auto REQUIRED)
+find_package(ament_cmake_python REQUIRED)
 ament_auto_find_build_dependencies()
 
 # Targets
+ament_python_install_package(${PROJECT_NAME}
+  SCRIPTS_DESTINATION lib/${PROJECT_NAME}
+)
+
 ament_auto_add_library(${PROJECT_NAME}_lib
   src/hri_person_manager/node_person_manager.cpp
   src/hri_person_manager/managed_person.cpp
@@ -44,11 +49,11 @@ if(BUILD_TESTING)
   ament_auto_find_test_dependencies()
   ament_lint_auto_find_test_dependencies()
 
-  ament_auto_add_gtest(${PROJECT_NAME}_test_1
+  ament_auto_add_gtest(${PROJECT_NAME}_node_test
     test/test_node_person_manager.cpp
   )
 
-  ament_auto_add_gtest(${PROJECT_NAME}_test_2
+  ament_auto_add_gtest(${PROJECT_NAME}_lib_test
     test/test_person_matcher.cpp
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/test
   )
