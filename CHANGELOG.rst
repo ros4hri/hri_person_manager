@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.0 (2024-02-02)
+------------------
 * compute proximal zones of engagements and publish them
   By default, 3 zones are defined: personal (0 to 1.2m), social (1.2m to 3.6m) and public (3.6m to 20m). Ranges can be configured via ROS parameters
 * improve logging of failed TF transforms
