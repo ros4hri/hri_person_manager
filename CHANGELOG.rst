@@ -2,6 +2,19 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* compute proximal zones of engagements and publish them
+  By default, 3 zones are defined: personal (0 to 1.2m), social (1.2m to 3.6m) and public (3.6m to 20m). Ranges can be configured via ROS parameters
+* improve logging of failed TF transforms
+  Previously, was using ROS\_*_ONCE, which means that errors were only displayed for the *first* feature to fail, not the other
+* [test] fix node name in .text. Was likely broken since 99bab22369df6666aa265f
+* add missing licenses + ROS1 official code formatting
+* [doc] add missing bits to the README
+* doc + add minor convenience function to clear internal graph
+* optimization in get_partition
+* Contributors: Séverin Lemaignan
+
 1.0.8 (2023-05-18)
 ------------------
 * add diagnostics
