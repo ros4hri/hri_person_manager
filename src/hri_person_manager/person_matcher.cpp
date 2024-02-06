@@ -16,9 +16,7 @@
 #include "hri_person_manager/person_matcher.hpp"
 
 #include <algorithm>
-#include <array>
 #include <cassert>
-#include <functional>
 #include <iostream>
 #include <iterator>
 #include <limits>
@@ -44,47 +42,6 @@ namespace hri_person_manager
 {
 
 using IdNodeMap = std::map<hri::FeatureType, std::map<hri::ID, Node>>;
-
-/** not super optimised, but not called very often either
- */
-hri::ID generate_random_id(const int len = 5)
-{
-  static const std::array<std::string, 26> alphanum{
-    {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
-      "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"}
-  };
-  std::string tmp_s;
-  tmp_s.reserve(len);
-
-  std::random_device dev;
-  std::mt19937 rng(dev());
-  std::uniform_int_distribution<uint32_t> rnd_dist(0, alphanum.size() - 1);
-
-  for (int i = 0; i < len; ++i) {
-    tmp_s += alphanum[rnd_dist(rng)];
-  }
-
-  return tmp_s;
-}
-
-hri::ID generate_hash_id(hri::ID id, const int len = 5)
-{
-  static const std::array<std::string, 26> alphanum{
-    {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
-      "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"}
-  };
-  std::string tmp_s;
-  tmp_s.reserve(len);
-
-  auto hash = std::hash<hri::ID>{}(id);
-
-  for (int i = 0; i < len; ++i) {
-    tmp_s += alphanum[hash % 10];
-    hash /= 10;
-  }
-
-  return tmp_s;
-}
 
 //////////// helpers for write_graphviz ////////////////
 const std::map<unsigned int, std::string> kColorScheme{

@@ -16,7 +16,9 @@
 #ifndef HRI_PERSON_MANAGER__PERSON_MATCHER_HPP_
 #define HRI_PERSON_MANAGER__PERSON_MATCHER_HPP_
 
+#include <array>
 #include <cmath>
+#include <functional>
 #include <limits>
 #include <map>
 #include <string>
@@ -92,6 +94,32 @@ using Edges = Graph::edge_iterator;
 using Feature = std::pair<hri::ID, hri::FeatureType>;
 using Relations =
   std::vector<std::tuple<hri::ID, hri::FeatureType, hri::ID, hri::FeatureType, float>>;
+
+/**
+ * Generates a random-looking ID from the hash of an existing ID.
+ *
+ * Useful to eg generate IDs for anonymous_persons that do not appear to be tied to a
+ * particular feature (eg, not named 'anonyous_person_face_123') but still
+ * stable when created from the same feature (useful for eg testing)
+ */
+inline hri::ID generate_hash_id(hri::ID id, const int len = 5)
+{
+  static const std::array<std::string, 26> alphanum{
+    {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+      "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"}
+  };
+  std::string tmp_s;
+  tmp_s.reserve(len);
+
+  auto hash = std::hash<hri::ID>{}(id);
+
+  for (int i = 0; i < len; ++i) {
+    tmp_s += alphanum[hash % 10];
+    hash /= 10;
+  }
+
+  return tmp_s;
+}
 
 /** small helper function to get a node by its name.
  *

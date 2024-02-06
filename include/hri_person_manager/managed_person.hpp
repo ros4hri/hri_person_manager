@@ -16,9 +16,11 @@
 #ifndef HRI_PERSON_MANAGER__MANAGED_PERSON_HPP_
 #define HRI_PERSON_MANAGER__MANAGED_PERSON_HPP_
 
+#include <array>
 #include <cmath>
 #include <chrono>
 #include <limits>
+#include <map>
 #include <memory>
 #include <string>
 
@@ -43,41 +45,50 @@ const std::chrono::seconds kLifetimeUntrackedPerson(10);
 const char kPerson[]{"person_"};
 const char kAnonymous[]{"anonymous_person_"};
 
+class Proxemics
+{
+public:
+  enum Value : uint8_t
+  {
+    kUnknown,
+    kPersonal,
+    kSocial,
+    kPublic
+  };
+
+  Proxemics() = default;
+  explicit constexpr Proxemics(Value value)
+  : value_(value) {}
+  Proxemics & operator=(Value value) {value_ = value; return *this;}
+  constexpr operator Value() const {return value_;}  // allow switch and comparison
+  constexpr const char * toString() const
+  {
+    switch (value_) {
+      case kPersonal: return "personal";
+      case kSocial: return "social";
+      case kPublic: return "public";
+      case kUnknown:
+      default: return "unknown";
+    }
+  }
+
+private:
+  Value value_;
+};
+
 template<class T>
 bool compare_floats(T l1, T l2)
 {
   return std::fabs(l1 - l2) <= std::numeric_limits<T>::epsilon();
 }
 
-// 0 < personal space =< DEFAULT_PERSONAL_DISTANCE
-const float DEFAULT_PERSONAL_DISTANCE = 1.2;  // m
-// DEFAULT_PERSONAL_DISTANCE < social space =< DEFAULT_SOCIAL_DISTANCE
-const float DEFAULT_SOCIAL_DISTANCE = 3.6;  // m
-// DEFAULT_SOCIAL_DISTANCE < public space =< DEFAULT_PUBLIC_DISTANCE
-const float DEFAULT_PUBLIC_DISTANCE = 20.;  // m
-
-enum Proxemics
-{
-  PROXEMICS_UNKNOWN,
-  PROXEMICS_PERSONAL,
-  PROXEMICS_SOCIAL,
-  PROXEMICS_PUBLIC
-};
-
-const std::map<Proxemics, std::string> PROXEMICS{
-  { Proxemics::PROXEMICS_UNKNOWN, "unknown" },
-  { Proxemics::PROXEMICS_PERSONAL, "personal" },
-  { Proxemics::PROXEMICS_SOCIAL, "social" },
-  { Proxemics::PROXEMICS_PUBLIC, "public" },
-};
-
-
 class ManagedPerson
 {
 public:
   ManagedPerson(
     hri::NodeLikeSharedPtr node_like, hri::ID id, std::shared_ptr<const tf2::BufferCore> tf_buffer,
-    const std::string & reference_frame);
+    const std::string & reference_frame, const std::string & robot_reference_frame,
+    float proxemics_dist_personal, float proxemics_dist_social, float proxemics_dist_public);
 
   ~ManagedPerson();
 
@@ -99,11 +110,13 @@ public:
   std::string tfFrame() const {return tf_frame_;}
 
   bool activelyTracked() const {return actively_tracked_;}
+  Proxemics proxemicZone() const {return proxemic_zone_;}
 
   void update(
     hri::ID face_id, hri::ID body_id, hri::ID voice_id, std::chrono::milliseconds elapsed_time);
 
 private:
+  void setProxemics(const std::string & target_frame);
   void publishFrame();
 
   hri::NodeInterfaces node_interfaces_;
@@ -115,17 +128,29 @@ private:
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr alias_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr anonymous_pub_;
   rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr loc_confidence_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr proxemics_pub_;
 
   bool actively_tracked_;
 
   std::string tf_frame_;
-  std::string tf_reference_frame_;
+  std::string reference_frame_;
+  std::string robot_reference_frame_;
 
   std::shared_ptr<const tf2::BufferCore> tf_buffer_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
   geometry_msgs::msg::TransformStamped transform_;
   bool had_transform_at_least_once_;
+  bool had_computed_distance_at_least_once_;
+
+  // helper variables to track whether or not we should log
+  // TF broadcasting/distance to robot computation
+  // (to avoid spamming the console in case TF transforms
+  // are not available)
+  bool last_tf_broadcast_successful_;
+  bool need_log_tf_broadcast_;
+  bool last_distance_successful_;
+  bool need_log_distance_;
 
   hri::ID face_id_;
   hri::ID body_id_;
@@ -135,6 +160,11 @@ private:
   bool anonymous_;
 
   hri::ID alias_;
+
+  const float kProxemicsDistPersonal_;
+  const float kProxemicsDistSocial_;
+  const float kProxemicsDistPublic_;
+  Proxemics proxemic_zone_;
 
   std::chrono::milliseconds time_since_last_seen_;
 };

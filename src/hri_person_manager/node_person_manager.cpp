@@ -60,12 +60,31 @@ NodePersonManager::NodePersonManager(const rclcpp::NodeOptions & options)
     "This should usually be a static frame wrt to the robot.";
   this->declare_parameter("reference_frame", "map", descriptor);
 
+  descriptor.description = "Reference frame for persons' distance computation";
+  this->declare_parameter("robot_reference_frame", "base_link", descriptor);
+
+  descriptor.description =
+    "Person upper distance threshold for personal zone (the nearest one) (m).";
+  this->declare_parameter("personal_distance", kDefaultPersonalDistance, descriptor);
+
+  descriptor.description =
+    "Person distance threshold between personal (nearer) and social (farther) zone (m).";
+  this->declare_parameter("social_distance", kDefaultSocialDistance, descriptor);
+
+  descriptor.description =
+    "Person distance threshold between social (nearer) and public (farther) zone (m).";
+  this->declare_parameter("public_distance", kDefaultPublicDistance, descriptor);
+
   RCLCPP_INFO(this->get_logger(), "State: Unconfigured");
 }
 
 LifecycleCallbackReturn NodePersonManager::on_configure(const rclcpp_lifecycle::State &)
 {
   reference_frame_ = this->get_parameter("reference_frame").as_string();
+  robot_reference_frame_ = this->get_parameter("robot_reference_frame").as_string();
+  personal_distance_ = this->get_parameter("personal_distance").as_double();
+  social_distance_ = this->get_parameter("social_distance").as_double();
+  public_distance_ = this->get_parameter("public_distance").as_double();
 
   person_matcher_.setThreshold(this->get_parameter("match_threshold").as_double());
 
@@ -90,6 +109,12 @@ LifecycleCallbackReturn NodePersonManager::on_activate(const rclcpp_lifecycle::S
     "/humans/persons/known", latched_qos);
   humans_graph_pub_ = this->create_publisher<std_msgs::msg::String>(
     "/humans/graph", latched_qos);
+  personal_space_pub_ = this->create_publisher<hri_msgs::msg::IdsList>(
+    "/humans/persons/in_personal_space", latched_qos);
+  social_space_pub_ = this->create_publisher<hri_msgs::msg::IdsList>(
+    "/humans/persons/in_social_space", latched_qos);
+  public_space_pub_ = this->create_publisher<hri_msgs::msg::IdsList>(
+    "/humans/persons/in_public_space", latched_qos);
   diagnostics_pub_ = this->create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
     "/diagnostics", 1);
 
@@ -153,6 +178,9 @@ void NodePersonManager::internal_deactivate()
   persons_timer_.reset();
   candidates_sub_.reset();
   tf_listener_.reset();
+  personal_space_pub_.reset();
+  social_space_pub_.reset();
+  public_space_pub_.reset();
   hri_listener_.reset();
   tracked_persons_pub_.reset();
   known_persons_pub_.reset();
@@ -178,6 +206,10 @@ void NodePersonManager::reset()
   hri_msgs::msg::IdsList persons_list;
   tracked_persons_pub_->publish(persons_list);
   known_persons_pub_->publish(persons_list);
+
+  personal_space_pub_->publish(persons_list);
+  social_space_pub_->publish(persons_list);
+  public_space_pub_->publish(persons_list);
 }
 
 void NodePersonManager::onCandidateMatch(const hri_msgs::msg::IdsMatch & match)
@@ -320,7 +352,8 @@ void NodePersonManager::updateDiagnostics()
 void NodePersonManager::initializePerson(hri::ID id)
 {
   persons_[id] = std::make_shared<ManagedPerson>(
-    shared_from_this(), id, tf_buffer_, reference_frame_);
+    shared_from_this(), id, tf_buffer_, reference_frame_, robot_reference_frame_,
+    personal_distance_, social_distance_, public_distance_);
   last_known_person_ = id;
 
   publishKnownPersons();
@@ -449,18 +482,61 @@ void NodePersonManager::publishPersons()
   // publish the list of currently actively tracked persons
   hri_msgs::msg::IdsList persons_list;
   std::vector<hri::ID> actively_tracked;
+  hri_msgs::msg::IdsList persons_personal_space_list;
+  hri_msgs::msg::IdsList persons_social_space_list;
+  hri_msgs::msg::IdsList persons_public_space_list;
+  std::vector<hri::ID> in_personal_space;
+  std::vector<hri::ID> in_social_space;
+  std::vector<hri::ID> in_public_space;
 
   for (auto const & kv : persons_) {
     if (kv.second->activelyTracked()) {
       actively_tracked.push_back(kv.first);
       persons_list.ids.push_back(kv.first);
+
+      switch (kv.second->proxemicZone()) {
+        case Proxemics::kUnknown:
+          break;
+        case Proxemics::kPersonal:
+          persons_personal_space_list.ids.push_back(kv.first);
+          in_personal_space.push_back(kv.first);
+          break;
+        case Proxemics::kSocial:
+          persons_social_space_list.ids.push_back(kv.first);
+          in_social_space.push_back(kv.first);
+          break;
+        case Proxemics::kPublic:
+          persons_public_space_list.ids.push_back(kv.first);
+          in_public_space.push_back(kv.first);
+          break;
+      }
     }
   }
 
+  auto stamp = this->get_clock()->now();
+
   if (actively_tracked != previously_tracked_) {
-    persons_list.header.stamp = this->get_clock()->now();
+    persons_list.header.stamp = stamp;
     tracked_persons_pub_->publish(persons_list);
     previously_tracked_ = actively_tracked;
+  }
+
+  if (in_personal_space != previously_in_personal_space_) {
+    persons_personal_space_list.header.stamp = stamp;
+    personal_space_pub_->publish(persons_personal_space_list);
+    previously_in_personal_space_ = in_personal_space;
+  }
+
+  if (in_social_space != previously_in_social_space_) {
+    persons_social_space_list.header.stamp = stamp;
+    social_space_pub_->publish(persons_social_space_list);
+    previously_in_social_space_ = in_social_space;
+  }
+
+  if (in_public_space != previously_in_public_space_) {
+    persons_public_space_list.header.stamp = stamp;
+    public_space_pub_->publish(persons_public_space_list);
+    previously_in_public_space_ = in_public_space;
   }
 
   proc_time_ms_ = (

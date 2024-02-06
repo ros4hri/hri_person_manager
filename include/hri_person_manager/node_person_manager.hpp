@@ -45,6 +45,10 @@
 namespace hri_person_manager
 {
 
+const float kDefaultPersonalDistance = 1.2;
+const float kDefaultSocialDistance = 3.6;
+const float kDefaultPublicDistance = 20.;
+
 enum class UpdateType
 {
   kNewFeature,
@@ -85,12 +89,24 @@ private:
   void publishKnownPersons();
   void publishPersons();
 
+  // reference frame in which persons' TF frame are republished. Typically, '/map'.
+  // Should not move with the robot, otherwise people not visible to the robot
+  // would 'move' along with the robot.
   std::string reference_frame_;
+  // reference frame *on the robot* to compute the distance to the persons,
+  // used eg for proxemics calculations. Typically, '/base_link'
+  std::string robot_reference_frame_;
   bool features_from_matches_;
+  float personal_distance_;
+  float social_distance_;
+  float public_distance_;
 
   PersonMatcher person_matcher_;
   std::vector<hri::ID> previously_known_;
   std::vector<hri::ID> previously_tracked_;
+  std::vector<hri::ID> previously_in_personal_space_;
+  std::vector<hri::ID> previously_in_social_space_;
+  std::vector<hri::ID> previously_in_public_space_;
   hri::ID last_known_person_;
   std::vector<Association> updates_;
   rclcpp::Time proc_start_time_;
@@ -105,6 +121,9 @@ private:
   // still known to the robot)
   rclcpp::Publisher<hri_msgs::msg::IdsList>::SharedPtr known_persons_pub_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr humans_graph_pub_;
+  rclcpp::Publisher<hri_msgs::msg::IdsList>::SharedPtr personal_space_pub_;
+  rclcpp::Publisher<hri_msgs::msg::IdsList>::SharedPtr social_space_pub_;
+  rclcpp::Publisher<hri_msgs::msg::IdsList>::SharedPtr public_space_pub_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_pub_;
 
   rclcpp::Subscription<hri_msgs::msg::IdsMatch>::SharedPtr candidates_sub_;

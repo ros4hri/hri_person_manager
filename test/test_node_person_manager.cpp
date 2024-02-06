@@ -15,9 +15,12 @@
 
 #include <chrono>
 #include <future>
+#include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
+#include "geometry_msgs/msg/transform_stamped.hpp"
 #include "gtest/gtest.h"
 #include "hri/hri.hpp"
 #include "hri/types.hpp"
@@ -27,9 +30,11 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rosgraph_msgs/msg/clock.hpp"
 #include "std_srvs/srv/empty.hpp"
+#include "tf2_ros/transform_broadcaster.h"
 
 #include "hri_person_manager/managed_person.hpp"
 #include "hri_person_manager/node_person_manager.hpp"
+#include "hri_person_manager/person_matcher.hpp"
 
 class NodePersonManagerTest : public ::testing::Test
 {
@@ -55,6 +60,7 @@ protected:
     tester_executor_ = rclcpp::executors::SingleThreadedExecutor::make_shared();
     tester_executor_->add_node(tester_node_);
     hri_listener_ = hri::HRIListener::create(tester_node_);
+    tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(tester_node_);
 
     time_ = tester_node_->get_clock()->now();
     clock_pub_ = tester_node_->create_publisher<rosgraph_msgs::msg::Clock>("/clock", 1);
@@ -93,6 +99,7 @@ protected:
     bodies_pub_.reset();
     voices_pub_.reset();
 
+    tf_broadcaster_.reset();
     hri_listener_.reset();
     person_manager_node_.reset();
     person_manager_executor_.reset();
@@ -100,15 +107,41 @@ protected:
     tester_executor_.reset();
   }
 
-  void spin(std::chrono::nanoseconds timeout = std::chrono::seconds(10))
+  void publish_feature_position(
+    const std::string & frame, float x, float y = 0., float z = 0.,
+    const std::string & base_frame = "base_link")
   {
-    person_manager_executor_->spin_all(timeout);
+    // publish the face's pose
+    geometry_msgs::msg::TransformStamped transform;
+    transform.header.stamp = (
+      tester_node_->get_clock()->now() - rclcpp::Duration(std::chrono::milliseconds(100)));
+    transform.header.frame_id = base_frame;
+    transform.child_frame_id = frame;
+    transform.transform.translation.x = x;
+    transform.transform.translation.y = y;
+    transform.transform.translation.z = z;
+    transform.transform.rotation.w = 1.;
+
+    // need to send the transform *2 times* so that TF can interpolate
+    // the timestamp of future lookups *must* be in the published interval -> we
+    // set the timestamp of the 2nd transform one second in the future to leave
+    // time for the unittest to complete & query TF as much as needed.
+    this->tf_broadcaster_->sendTransform(transform);
+    transform.header.stamp = (
+      tester_node_->get_clock()->now() + rclcpp::Duration(std::chrono::seconds(1)));
+    this->tf_broadcaster_->sendTransform(transform);
+  }
+
+  void spin(std::chrono::nanoseconds timeout = std::chrono::seconds(1))
+  {
+    person_manager_executor_->spin_all(timeout);  // get features (faces)
 
     time_ += rclcpp::Duration(std::chrono::milliseconds(200));
     rosgraph_msgs::msg::Clock clock_msg;
     clock_msg.clock = time_;
     clock_pub_->publish(clock_msg);
-    person_manager_executor_->spin_all(timeout);
+    person_manager_executor_->spin_all(timeout);  // get clock
+    person_manager_executor_->spin_all(timeout);  // trigger timer
 
     tester_executor_->spin_all(timeout);
   }
@@ -126,7 +159,8 @@ protected:
 private:
   rclcpp::Time time_;
   rclcpp::Publisher<rosgraph_msgs::msg::Clock>::SharedPtr clock_pub_;
-  std::shared_ptr<hri_person_manager::NodePersonManager> person_manager_node_;
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+  hri_person_manager::NodePersonManager::SharedPtr person_manager_node_;
 };
 
 TEST_F(NodePersonManagerTest, KnownPersons)
@@ -179,6 +213,98 @@ TEST_F(NodePersonManagerTest, KnownPersons)
   EXPECT_EQ(face_f2->id(), "f2");
 }
 
+TEST_F(NodePersonManagerTest, Proxemics)
+{
+  using Proxemics = hri_person_manager::Proxemics;
+
+  std::vector<std::string> personal_space;
+  std::vector<std::string> social_space;
+  std::vector<std::string> public_space;
+
+  auto personal_prox_sub = tester_node_->create_subscription<hri_msgs::msg::IdsList>(
+    "/humans/persons/in_personal_space", 1,
+    [&personal_space](const hri_msgs::msg::IdsList::ConstSharedPtr people) {
+      personal_space = people->ids;
+    });
+  auto social_prox_sub = tester_node_->create_subscription<hri_msgs::msg::IdsList>(
+    "/humans/persons/in_social_space", 1,
+    [&social_space](const hri_msgs::msg::IdsList::ConstSharedPtr people) {
+      social_space = people->ids;
+    });
+  auto public_prox_sub = tester_node_->create_subscription<hri_msgs::msg::IdsList>(
+    "/humans/persons/in_public_space", 1,
+    [&public_space](const hri_msgs::msg::IdsList::ConstSharedPtr people) {
+      public_space = people->ids;
+    });
+
+  std::map<hri::ID, std::tuple<float, Proxemics::Value>> test_faces{
+    {"f1", {hri_person_manager::kDefaultPersonalDistance - 0.1f, Proxemics::kPersonal}},
+    {"f2", {hri_person_manager::kDefaultPersonalDistance, Proxemics::kPersonal}},
+    {"f3", {hri_person_manager::kDefaultPersonalDistance + 0.1f, Proxemics::kSocial}},
+    {"f4", {hri_person_manager::kDefaultSocialDistance - 0.1f, Proxemics::kSocial}},
+    {"f5", {hri_person_manager::kDefaultSocialDistance, Proxemics::kSocial}},
+    {"f6", {hri_person_manager::kDefaultSocialDistance + 0.1f, Proxemics::kPublic}},
+    {"f7", {hri_person_manager::kDefaultPublicDistance - 0.1f, Proxemics::kPublic}},
+    {"f8", {hri_person_manager::kDefaultPublicDistance + 0.1f, Proxemics::kUnknown}}
+  };
+
+  for (auto const & face : test_faces) {
+    auto & name = face.first;
+    auto person_name = "anonymous_person_" + hri_person_manager::generate_hash_id(name);
+    auto frame = "face_" + name;
+    float dist = get<0>(face.second);
+    Proxemics proxemics{get<1>(face.second)};
+
+    RCLCPP_WARN_STREAM(
+      tester_node_->get_logger(),
+      "Testing face " << name << " at distance " << dist
+                      << "m from the robot -> expecting proximal zone '"
+                      << proxemics.toString() << "'.");
+
+    hri_msgs::msg::IdsList ids;
+    ids.ids = {name};
+    faces_pub_->publish(ids);
+    spin();
+    publish_feature_position(frame, dist);
+    spin();
+
+    switch (proxemics) {
+      case Proxemics::kPersonal:
+        ASSERT_TRUE(
+          find(personal_space.begin(), personal_space.end(), person_name) != personal_space.end());
+        ASSERT_FALSE(
+          find(social_space.begin(), social_space.end(), person_name) != social_space.end());
+        ASSERT_FALSE(
+          find(public_space.begin(), public_space.end(), person_name) != public_space.end());
+        break;
+      case Proxemics::kSocial:
+        ASSERT_FALSE(
+          find(personal_space.begin(), personal_space.end(), person_name) != personal_space.end());
+        ASSERT_TRUE(
+          find(social_space.begin(), social_space.end(), person_name) != social_space.end());
+        ASSERT_FALSE(
+          find(public_space.begin(), public_space.end(), person_name) != public_space.end());
+        break;
+      case Proxemics::kPublic:
+        ASSERT_FALSE(
+          find(personal_space.begin(), personal_space.end(), person_name) != personal_space.end());
+        ASSERT_FALSE(
+          find(social_space.begin(), social_space.end(), person_name) != social_space.end());
+        ASSERT_TRUE(
+          find(public_space.begin(), public_space.end(), person_name) != public_space.end());
+        break;
+      case Proxemics::kUnknown:
+        ASSERT_FALSE(
+          find(personal_space.begin(), personal_space.end(), person_name) != personal_space.end());
+        ASSERT_FALSE(
+          find(social_space.begin(), social_space.end(), person_name) != social_space.end());
+        ASSERT_FALSE(
+          find(public_space.begin(), public_space.end(), person_name) != public_space.end());
+        break;
+    }
+  }
+}
+
 TEST_F(NodePersonManagerTest, Reset)
 {
   auto empty = std::make_shared<std_srvs::srv::Empty::Request>();
@@ -218,6 +344,7 @@ TEST_F(NodePersonManagerTest, Reset)
 
   ids.ids = {"f1"};
   faces_pub_->publish(ids);
+  spin();
   matches_pub_->publish(match);
   spin();
   persons = hri_listener_->getPersons();
