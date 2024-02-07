@@ -73,3 +73,82 @@ If the topic message type is not indicated, the ROS4HRI convention is implied.
 
 The current graph can be exported on PDF using:
 `ros2 run hri_person_manager show_humans_graph <filename>`
+
+## Testing
+
+You can locally test this node using your webcam, and the
+[`hri_face_detect`](https://github.com/ros4hri/hri_face_detect/tree/humble-devel)
+and `hri_face_identification` nodes:
+
+
+1. In terminal 1, start `usb_cam`:
+
+```
+ros2 run usb_cam usb_cam_node_exe --ros-args -p camera_info_url:="file:///`pwd`/sample_camera_calibration.yml"
+```
+
+You **must** provide a calibration file for your camera, otherwise
+`hri_face_detect` will not be able to publish the TF frames of the faces (note
+that the name of the camera in the calibration file should be `default_cam`, as
+I will assume this name for the camera TF frame).
+
+Without calibration, `hri_person_manager` will still partially work, but eg
+proximal zones will not be published, and the person TF frames will not be
+available.
+
+
+2. in terminal 2, start `hri_face_detect`:
+
+```
+ros2 launch hri_face_detect face_detect.launch.py
+```
+
+3. in terminal 3, start `hri_face_identification`:
+
+```
+ros2 launch hri_face_identification face_identification.launch.py
+```
+
+4. in terminal 4, publish a static (identity) transform between the camera and `/map`:
+
+```
+ros2 run tf2_ros static_transform_publisher --frame-id map --child-frame-id default_cam
+```
+
+5. in terminal 5, start the `hri_person_manager` node:
+
+```
+ros2 run hri_person_manager hri_person_manager --ros-args -p robot_reference_frame:=default_cam
+```
+
+6. in terminal 6, use `ros2 lifecycle` to configure and start `hri_person_manager`:
+
+```
+$ ros2 lifecycle set /hri_person_manager configure
+Transitioning successful
+$ ros2 lifecycle set /hri_person_manager activate
+Transitioning successful
+```
+
+7. in terminal 7, check the output of `/humans/persons/tracked`, `/humans/persons/in_{personal,social,public}_space`, `/humans/persons/<id>/*`...
+
+For instance, you should see your own person ID:
+
+```
+ros2 topic echo /humans/persons/in_personal_space
+```
+
+8. Optionally, you can display the face - person association graph:
+
+  - in terminal 8, run:
+
+```
+ros2 run hri_person_manager show_humans_graph
+```
+
+  - in terminal 9:
+
+```
+evince /tmp/graph.pdf
+```
+
