@@ -2,6 +2,17 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* port proxemics
+* port show_humans_graph
+* remove features_from_matches parameter
+  this feature was introduced to compensate for possible delays in the
+  publication of tracked features, but it proved to cause more harm than
+  good
+* port to ROS2 (node and tests); change license to apache 2.0
+* Contributors: Luka Juricic, Séverin Lemaignan
+
 1.1.0 (2024-02-02)
 ------------------
 * compute proximal zones of engagements and publish them
