@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.0.0 (2024-02-07)
+------------------
 * port proxemics
 * port show_humans_graph
 * remove features_from_matches parameter
