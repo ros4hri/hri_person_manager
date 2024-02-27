@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.0.1 (2024-02-27)
+------------------
 * Add launch parameters
 * fix license in CMakeLists
 * Contributors: Luka Juricic
