@@ -2,6 +2,11 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* add PAL module
+* Contributors: Séverin Lemaignan
+
 2.0.1 (2024-02-27)
 ------------------
 * Add launch parameters
