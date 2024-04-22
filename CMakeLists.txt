@@ -29,6 +29,12 @@ find_package(ament_cmake_auto REQUIRED)
 find_package(ament_cmake_python REQUIRED)
 ament_auto_find_build_dependencies()
 
+if(pal_module_cmake_FOUND)
+  pal_register_modules(
+    module/hri_person_manager.yaml
+  )
+endif()
+
 # Targets
 ament_python_install_package(${PROJECT_NAME}
   SCRIPTS_DESTINATION lib/${PROJECT_NAME}

@@ -1,0 +1,2 @@
+hri_person_manager:
+  launch: "hri_person_manager person_manager.launch.py"
