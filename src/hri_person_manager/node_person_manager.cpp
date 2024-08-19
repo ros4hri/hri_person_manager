@@ -334,10 +334,10 @@ void NodePersonManager::onFeatureLost(hri::ID id)
 void NodePersonManager::updateDiagnostics()
 {
   diagnostic_updater::DiagnosticStatusWrapper status;
-  status.name = "Social perception: Data fusion";
+  status.name = "/social_perception/fusion/hri_person_manager";
   status.hardware_id = "none";
   status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "OK");
-  status.add("Package name", "hri_person_manager");
+  status.add("Module name", "hri_person_manager");
   status.add("Currently tracked persons", previously_tracked_.size());
   status.add("Known persons", previously_known_.size());
   status.add("Last known person ID", last_known_person_);
