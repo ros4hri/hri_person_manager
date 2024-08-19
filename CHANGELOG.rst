@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.0.3 (2024-08-19)
+------------------
 * rename diagnostics msg to match documentation (and diagnostic_aggregator) categories
 * Contributors: Séverin Lemaignan
 
