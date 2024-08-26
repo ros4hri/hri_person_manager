@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.0.4 (2024-08-26)
+------------------
 * stop canTransform spamming the logs + reformating with ament_uncrustify
 * Contributors: Séverin Lemaignan
 
