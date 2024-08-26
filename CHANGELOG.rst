@@ -2,6 +2,11 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* stop canTransform spamming the logs + reformating with ament_uncrustify
+* Contributors: Séverin Lemaignan
+
 2.0.3 (2024-08-19)
 ------------------
 * rename diagnostics msg to match documentation (and diagnostic_aggregator) categories
