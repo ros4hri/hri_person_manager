@@ -389,15 +389,21 @@ void NodePersonManager::publishPersons()
     this->get_clock()->now() - proc_start_time_).to_chrono<std::chrono::milliseconds>();
   proc_start_time_ = this->get_clock()->now();
 
+  auto & clk = *(this->get_clock());
+
   if (!updates_.empty()) {
-    RCLCPP_INFO(this->get_logger(), "Updating graph:");
+    RCLCPP_INFO_STREAM_THROTTLE(
+      this->get_logger(), clk, 1000,
+      "Updating graph [throttled at 1Hz]:");
   }
   for (auto u : updates_) {
     std::tie(update_type, id1, type1, id2, type2, likelihood) = u;
 
     switch (update_type) {
       case UpdateType::kNewFeature:
-        RCLCPP_INFO_STREAM(this->get_logger(), "- New feature: " << id1 << " (" << type1 << ")");
+        RCLCPP_INFO_STREAM_THROTTLE(
+          this->get_logger(), clk, 1000,
+          "- New feature: " << id1 << " (" << type1 << ")");
         // create a single 'orphan' node. At the end of the next update cycle,
         // this orphan node will be associated to an anonymous_persons if it
         // is not linked to any other node
@@ -405,13 +411,15 @@ void NodePersonManager::publishPersons()
         break;
 
       case UpdateType::kRemove:
-        RCLCPP_INFO_STREAM(this->get_logger(), "- Remove ID: " << id1);
+        RCLCPP_INFO_STREAM_THROTTLE(
+          this->get_logger(), clk, 1000,
+          "- Remove ID: " << id1);
         person_matcher_.erase(id1);
         break;
 
       case UpdateType::kRelation:
-        RCLCPP_INFO_STREAM(
-          this->get_logger(),
+        RCLCPP_INFO_STREAM_THROTTLE(
+          this->get_logger(), clk, 1000,
           "- Update relation: " << id1 << " (" << type1 << ") <--> " << id2 << " (" << type2
                                 << "); likelihood=" << likelihood);
         person_matcher_.update({{id1, type1, id2, type2, likelihood}});

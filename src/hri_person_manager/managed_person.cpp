@@ -328,8 +328,10 @@ void ManagedPerson::publishFrame()
     }
   } else {
     if (!had_transform_at_least_once_) {
-      RCLCPP_INFO_STREAM(
+      auto & clk = *(node_interfaces_.clock->get_clock());
+      RCLCPP_INFO_STREAM_THROTTLE(
         node_interfaces_.get_node_logging_interface()->get_logger(),
+        clk, 1000,
         "[person <" << kId_
                     << ">] no face, body or voice TF frame available. "
                     << "Can not yet broadcast frame <" << tf_frame_ << ">.");
@@ -386,8 +388,10 @@ void ManagedPerson::publishFrame()
     }
   } else {
     if (!had_computed_distance_at_least_once_) {
-      RCLCPP_INFO_STREAM(
+      auto & clk = *(node_interfaces_.clock->get_clock());
+      RCLCPP_INFO_STREAM_THROTTLE(
         node_interfaces_.get_node_logging_interface()->get_logger(),
+        clk, 1000,
         "[person <" << kId_ << ">] no face, body or voice TF frame avail. "
                     << "Can not yet compute distance to robot.");
     } else {
