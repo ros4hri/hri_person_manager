@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include "hri_person_manager/managed_person.hpp"
 
 #include <chrono>
@@ -34,53 +33,56 @@ namespace hri_person_manager
 {
 
 ManagedPerson::ManagedPerson(
-  hri::NodeLikeSharedPtr node_like, hri::ID id, std::shared_ptr<const tf2::BufferCore> tf_buffer,
-  const std::string & reference_frame, const std::string & robot_reference_frame,
-  float proxemics_dist_personal, float proxemics_dist_social, float proxemics_dist_public)
-: node_interfaces_(node_like),
-  kId_(id),
-  actively_tracked_(false),
+  hri::NodeLikeSharedPtr node_like, hri::ID id,
+  std::shared_ptr<const tf2::BufferCore> tf_buffer,
+  const std::string & reference_frame,
+  const std::string & robot_reference_frame,
+  float proxemics_dist_personal,
+  float proxemics_dist_social,
+  float proxemics_dist_public)
+: node_interfaces_(node_like), kId_(id), actively_tracked_(false),
   reference_frame_(reference_frame),
-  robot_reference_frame_(robot_reference_frame),
-  tf_buffer_(tf_buffer),
+  robot_reference_frame_(robot_reference_frame), tf_buffer_(tf_buffer),
   had_transform_at_least_once_(false),
   had_computed_distance_at_least_once_(false),
-  last_tf_broadcast_successful_(false),
-  need_log_tf_broadcast_(true),
-  last_distance_successful_(false),
-  need_log_distance_(true),
-  loc_confidence_(0.),
-  loc_confidence_dirty_(false),
-  anonymous_(false),
+  last_tf_broadcast_successful_(false), need_log_tf_broadcast_(true),
+  last_distance_successful_(false), need_log_distance_(true),
+  loc_confidence_(0.), loc_confidence_dirty_(false), anonymous_(false),
   kProxemicsDistPersonal_(proxemics_dist_personal),
   kProxemicsDistSocial_(proxemics_dist_social),
   kProxemicsDistPublic_(proxemics_dist_public),
-  proxemic_zone_(Proxemics::kUnknown),
-  time_since_last_seen_(0)
+  proxemic_zone_(Proxemics::kUnknown), time_since_last_seen_(0)
 {
   auto default_qos = rclcpp::SystemDefaultsQoS();
   auto latched_qos = rclcpp::SystemDefaultsQoS().transient_local().reliable();
 
   face_id_pub_ = rclcpp::create_publisher<std_msgs::msg::String>(
-    node_interfaces_.get_node_parameters_interface(), node_interfaces_.get_node_topics_interface(),
+    node_interfaces_.get_node_parameters_interface(),
+    node_interfaces_.get_node_topics_interface(),
     "/humans/persons/" + kId_ + "/face_id", latched_qos);
   body_id_pub_ = rclcpp::create_publisher<std_msgs::msg::String>(
-    node_interfaces_.get_node_parameters_interface(), node_interfaces_.get_node_topics_interface(),
+    node_interfaces_.get_node_parameters_interface(),
+    node_interfaces_.get_node_topics_interface(),
     "/humans/persons/" + kId_ + "/body_id", latched_qos);
   voice_id_pub_ = rclcpp::create_publisher<std_msgs::msg::String>(
-    node_interfaces_.get_node_parameters_interface(), node_interfaces_.get_node_topics_interface(),
+    node_interfaces_.get_node_parameters_interface(),
+    node_interfaces_.get_node_topics_interface(),
     "/humans/persons/" + kId_ + "/voice_id", latched_qos);
   alias_pub_ = rclcpp::create_publisher<std_msgs::msg::String>(
-    node_interfaces_.get_node_parameters_interface(), node_interfaces_.get_node_topics_interface(),
+    node_interfaces_.get_node_parameters_interface(),
+    node_interfaces_.get_node_topics_interface(),
     "/humans/persons/" + kId_ + "/alias", latched_qos);
   anonymous_pub_ = rclcpp::create_publisher<std_msgs::msg::Bool>(
-    node_interfaces_.get_node_parameters_interface(), node_interfaces_.get_node_topics_interface(),
+    node_interfaces_.get_node_parameters_interface(),
+    node_interfaces_.get_node_topics_interface(),
     "/humans/persons/" + kId_ + "/anonymous", latched_qos);
   loc_confidence_pub_ = rclcpp::create_publisher<std_msgs::msg::Float32>(
-    node_interfaces_.get_node_parameters_interface(), node_interfaces_.get_node_topics_interface(),
+    node_interfaces_.get_node_parameters_interface(),
+    node_interfaces_.get_node_topics_interface(),
     "/humans/persons/" + kId_ + "/location_confidence", default_qos);
   proxemics_pub_ = rclcpp::create_publisher<std_msgs::msg::String>(
-    node_interfaces_.get_node_parameters_interface(), node_interfaces_.get_node_topics_interface(),
+    node_interfaces_.get_node_parameters_interface(),
+    node_interfaces_.get_node_topics_interface(),
     "/humans/persons/" + kId_ + "/proxemic_space", latched_qos);
 
   setAnonymous((kId_.rfind(kAnonymous, 0) == 0) ? true : false);
@@ -90,13 +92,15 @@ ManagedPerson::ManagedPerson(
   std::visit(
     [&](auto && node) {
       tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(node);
-    }, node_like);
+    },
+    node_like);
 }
 
 ManagedPerson::~ManagedPerson()
 {
   RCLCPP_DEBUG_STREAM(
-    node_interfaces_.get_node_logging_interface()->get_logger(), "Forgetting person " << kId_);
+    node_interfaces_.get_node_logging_interface()->get_logger(),
+    "Forgetting person " << kId_);
 }
 
 void ManagedPerson::setFaceId(hri::ID id)
@@ -202,7 +206,8 @@ void ManagedPerson::setProxemics(const std::string & target_frame)
   } catch (tf2::TransformException & ex) {
     RCLCPP_WARN_STREAM(
       node_interfaces_.get_node_logging_interface()->get_logger(),
-      "Could not compute proxemics for person <" << kId_ << ">: " << ex.what());
+      "Could not compute proxemics for person <" << kId_
+                                                 << ">: " << ex.what());
     proxemic_zone_ = Proxemics::kUnknown;
   }
 
@@ -212,9 +217,11 @@ void ManagedPerson::setProxemics(const std::string & target_frame)
 }
 
 void ManagedPerson::update(
-  hri::ID face_id, hri::ID body_id, hri::ID voice_id, std::chrono::milliseconds elapsed_time)
+  hri::ID face_id, hri::ID body_id, hri::ID voice_id,
+  std::chrono::milliseconds elapsed_time)
 {
-  // a person is considered 'actively tracked' if at least one of its face/body/voice is tracked
+  // a person is considered 'actively tracked' if at least one of its
+  // face/body/voice is tracked
   actively_tracked_ = !face_id.empty() || !body_id.empty() || !voice_id.empty();
 
   setFaceId(face_id);
@@ -234,7 +241,8 @@ void ManagedPerson::update(
         loc_confidence_dirty_ = true;
         RCLCPP_WARN_STREAM(
           node_interfaces_.get_node_logging_interface()->get_logger(),
-          "[person <" << kId_ << ">] not seen for more than " << kLifetimeUntrackedPerson.count()
+          "[person <" << kId_ << ">] not seen for more than "
+                      << kLifetimeUntrackedPerson.count()
                       << ". Not publishing tf frame anymore.");
       }
     } else {  // not tracked, but lifetime *not yet expired*
@@ -267,7 +275,11 @@ void ManagedPerson::publishFrame()
   }
 
   if (!target_frame.empty()) {
-    if (tf_buffer_->canTransform(reference_frame_, target_frame, tf2::TimePointZero)) {
+    std::string error_msg;
+    if (tf_buffer_->canTransform(
+        reference_frame_, target_frame,
+        tf2::TimePointZero, &error_msg))
+    {
       // log management
       if (!last_tf_broadcast_successful_) {
         need_log_tf_broadcast_ = true;
@@ -276,14 +288,15 @@ void ManagedPerson::publishFrame()
       if (need_log_tf_broadcast_) {
         RCLCPP_INFO_STREAM(
           node_interfaces_.get_node_logging_interface()->get_logger(),
-          "[person <" << kId_ << ">] broadcast transform " << reference_frame_ << " <-> "
-                      << target_frame);
+          "[person <" << kId_ << ">] broadcast transform " << reference_frame_
+                      << " <-> " << target_frame);
         need_log_tf_broadcast_ = false;
       }
 
       try {
         transform_ = tf_buffer_->lookupTransform(
-          reference_frame_, target_frame, tf2::TimePointZero);
+          reference_frame_, target_frame,
+          tf2::TimePointZero);
         transform_.header.stamp = node_interfaces_.clock->get_clock()->now();
         transform_.child_frame_id = tf_frame_;
 
@@ -292,8 +305,8 @@ void ManagedPerson::publishFrame()
       } catch (const tf2::TransformException & ex) {
         RCLCPP_WARN_STREAM(
           node_interfaces_.get_node_logging_interface()->get_logger(),
-          "failed to transform " << target_frame << " to " << reference_frame_ << ". "
-                                 << ex.what());
+          "failed to transform " << target_frame << " to " << reference_frame_
+                                 << ". " << ex.what());
       }
     } else {
       // log management
@@ -307,7 +320,9 @@ void ManagedPerson::publishFrame()
           "[person <" << kId_ << ">] can not publish person "
                       << "transform (either reference frame <"
                       << reference_frame_ << "> or target frame <"
-                      << target_frame << "> are not available)");
+                      << target_frame
+                      << "> are not available) [original error: " << error_msg
+                      << "]");
         need_log_tf_broadcast_ = false;
       }
     }
@@ -315,7 +330,8 @@ void ManagedPerson::publishFrame()
     if (!had_transform_at_least_once_) {
       RCLCPP_INFO_STREAM(
         node_interfaces_.get_node_logging_interface()->get_logger(),
-        "[person <" << kId_ << ">] no face, body or voice TF frame available. "
+        "[person <" << kId_
+                    << ">] no face, body or voice TF frame available. "
                     << "Can not yet broadcast frame <" << tf_frame_ << ">.");
     } else {
       // publish the last known transform, until loc_confidence == 0
@@ -327,8 +343,12 @@ void ManagedPerson::publishFrame()
   }
 
   // computation of distance to robot
+  std::string error_msg;
   if (!target_frame.empty()) {
-    if (tf_buffer_->canTransform(robot_reference_frame_, target_frame, tf2::TimePointZero)) {
+    if (tf_buffer_->canTransform(
+        robot_reference_frame_, target_frame,
+        tf2::TimePointZero, &error_msg))
+    {
       // log management
       if (!last_distance_successful_) {
         need_log_distance_ = true;
@@ -355,9 +375,12 @@ void ManagedPerson::publishFrame()
       if (need_log_distance_) {
         RCLCPP_WARN_STREAM(
           node_interfaces_.get_node_logging_interface()->get_logger(),
-          "[person <" << kId_ << ">] can not compute distance (either reference frame "
-                      << robot_reference_frame_ << "> or target frame <"
-                      << target_frame << "> are not available)");
+          "[person <"
+            << kId_
+            << ">] can not compute distance (either reference frame <"
+            << robot_reference_frame_ << "> or target frame <"
+            << target_frame
+            << "> are not available [original error: " << error_msg << "]");
         need_log_distance_ = false;
       }
     }
@@ -369,9 +392,11 @@ void ManagedPerson::publishFrame()
                     << "Can not yet compute distance to robot.");
     } else {
       // publish the last known transform, until loc_confidence == 0
-      if (
-        loc_confidence_ > 0. &&
-        tf_buffer_->canTransform(robot_reference_frame_, tf_frame_, tf2::TimePointZero))
+      std::string error_msg2;
+      if (loc_confidence_ > 0. &&
+        tf_buffer_->canTransform(
+          robot_reference_frame_, tf_frame_,
+          tf2::TimePointZero, &error_msg2))
       {
         setProxemics(tf_frame_);
       }
