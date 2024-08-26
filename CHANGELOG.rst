@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.0.5 (2024-08-26)
+------------------
 * throttle some more logs
 * Contributors: Séverin Lemaignan
 
