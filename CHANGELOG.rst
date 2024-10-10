@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.0.6 (2024-10-10)
+------------------
 * persons' TF frames must start with person\_ as per REP-155
 * Contributors: Séverin Lemaignan
 
