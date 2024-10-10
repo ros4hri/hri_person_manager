@@ -87,7 +87,7 @@ ManagedPerson::ManagedPerson(
 
   setAnonymous((kId_.rfind(kAnonymous, 0) == 0) ? true : false);
 
-  tf_frame_ = anonymous_ ? kId_ : kPerson + kId_;
+  tf_frame_ = kPerson + kId_;
 
   std::visit(
     [&](auto && node) {
