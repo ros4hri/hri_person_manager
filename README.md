@@ -21,6 +21,10 @@ The resulting most likely graph is published.
 
 See [doc/ALGORITHM.md](doc/ALGORITHM.md) for details.
 
+**If you use this code in academic work, please cite the paper that presents
+the algorithm: [Probabilistic fusion of persons' body features: the Mr. Potato
+algorithm](https://doi.org/10.1145/3610977.3637479)**
+
 ## ROS API
 
 ### Parameters
