@@ -2,6 +2,13 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* add rate parameter; increase publish frequency to 30
+* periodic non-latched republish
+* [doc] add reference to Mr Potatoe algorithm
+* Contributors: Luka Juricic, Séverin Lemaignan
+
 2.0.6 (2024-10-10)
 ------------------
 * persons' TF frames must start with person\_ as per REP-155
