@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.1.0 (2025-02-24)
+------------------
 * add rate parameter; increase publish frequency to 30
 * periodic non-latched republish
 * [doc] add reference to Mr Potatoe algorithm
