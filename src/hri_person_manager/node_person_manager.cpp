@@ -53,6 +53,9 @@ NodePersonManager::NodePersonManager(const rclcpp::NodeOptions & options)
 {
   auto descriptor = rcl_interfaces::msg::ParameterDescriptor{};
 
+  descriptor.description = "Update rate in Hertz for all `/humans/persons/*` topics";
+  this->declare_parameter("rate", 30., descriptor);
+
   descriptor.description = "Minimum likelihood to associate a face/body/voice to a given person";
   this->declare_parameter("match_threshold", 0.5, descriptor);
 
@@ -80,6 +83,7 @@ NodePersonManager::NodePersonManager(const rclcpp::NodeOptions & options)
 
 LifecycleCallbackReturn NodePersonManager::on_configure(const rclcpp_lifecycle::State &)
 {
+  rate_ = this->get_parameter("rate").as_double();
   reference_frame_ = this->get_parameter("reference_frame").as_string();
   robot_reference_frame_ = this->get_parameter("robot_reference_frame").as_string();
   personal_distance_ = this->get_parameter("personal_distance").as_double();
@@ -134,7 +138,7 @@ LifecycleCallbackReturn NodePersonManager::on_activate(const rclcpp_lifecycle::S
 
   proc_start_time_ = this->get_clock()->now();
   persons_timer_ = rclcpp::create_timer(
-    this, this->get_clock(), std::chrono::milliseconds(100),
+    this, this->get_clock(), rclcpp::Rate(rate_).period(),
     std::bind(&NodePersonManager::publishPersons, this));
   diagnostics_timer_ = rclcpp::create_timer(
     this, this->get_clock(), std::chrono::seconds(1),

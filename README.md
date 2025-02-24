@@ -31,6 +31,8 @@ algorithm](https://doi.org/10.1145/3610977.3637479)**
 
 All parameters are loaded in the lifecycle `configuration` transition.
 
+- `rate` (`double > 0`, default: `30.`):
+  Update rate in Hertz for all `/humans/persons/*` topics.
 - `match_threshold` (`double > 0`, default: `0.5`):
   Minimum level of likelihood to consider a face/body/voice to belong to a given person.
 - `reference_frame` (`string`, default: `map`):

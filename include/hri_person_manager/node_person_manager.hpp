@@ -89,6 +89,7 @@ private:
   void publishKnownPersons();
   void publishPersons();
 
+  double rate_;
   // reference frame in which persons' TF frame are republished. Typically, '/map'.
   // Should not move with the robot, otherwise people not visible to the robot
   // would 'move' along with the robot.

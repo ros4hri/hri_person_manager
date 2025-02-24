@@ -62,6 +62,7 @@ protected:
     hri_listener_ = hri::HRIListener::create(tester_node_);
     tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(tester_node_);
 
+    rate_ = person_manager_node_->get_parameter("rate").as_double();
     time_ = tester_node_->get_clock()->now();
     clock_pub_ = tester_node_->create_publisher<rosgraph_msgs::msg::Clock>("/clock", 1);
 
@@ -114,7 +115,7 @@ protected:
     // publish the face's pose
     geometry_msgs::msg::TransformStamped transform;
     transform.header.stamp = (
-      tester_node_->get_clock()->now() - rclcpp::Duration(std::chrono::milliseconds(100)));
+      tester_node_->get_clock()->now() - rclcpp::Duration(rclcpp::Rate(rate_).period()));
     transform.header.frame_id = base_frame;
     transform.child_frame_id = frame;
     transform.transform.translation.x = x;
@@ -136,7 +137,7 @@ protected:
   {
     person_manager_executor_->spin_all(timeout);  // get features (faces)
 
-    time_ += rclcpp::Duration(std::chrono::milliseconds(200));
+    time_ += rclcpp::Duration(rclcpp::Rate(rate_).period());
     rosgraph_msgs::msg::Clock clock_msg;
     clock_msg.clock = time_;
     clock_pub_->publish(clock_msg);
@@ -157,6 +158,7 @@ protected:
   rclcpp::Executor::SharedPtr tester_executor_;
 
 private:
+  double rate_;
   rclcpp::Time time_;
   rclcpp::Publisher<rosgraph_msgs::msg::Clock>::SharedPtr clock_pub_;
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
