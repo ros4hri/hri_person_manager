@@ -101,20 +101,20 @@ LifecycleCallbackReturn NodePersonManager::on_cleanup(const rclcpp_lifecycle::St
 
 LifecycleCallbackReturn NodePersonManager::on_activate(const rclcpp_lifecycle::State &)
 {
-  auto latched_qos = rclcpp::SystemDefaultsQoS().transient_local().reliable();
+  auto default_qos = rclcpp::SystemDefaultsQoS();
 
   tracked_persons_pub_ = this->create_publisher<hri_msgs::msg::IdsList>(
-    "/humans/persons/tracked", latched_qos);
+    "/humans/persons/tracked", default_qos);
   known_persons_pub_ = this->create_publisher<hri_msgs::msg::IdsList>(
-    "/humans/persons/known", latched_qos);
+    "/humans/persons/known", default_qos);
   humans_graph_pub_ = this->create_publisher<std_msgs::msg::String>(
-    "/humans/graph", latched_qos);
+    "/humans/graph", default_qos);
   personal_space_pub_ = this->create_publisher<hri_msgs::msg::IdsList>(
-    "/humans/persons/in_personal_space", latched_qos);
+    "/humans/persons/in_personal_space", default_qos);
   social_space_pub_ = this->create_publisher<hri_msgs::msg::IdsList>(
-    "/humans/persons/in_social_space", latched_qos);
+    "/humans/persons/in_social_space", default_qos);
   public_space_pub_ = this->create_publisher<hri_msgs::msg::IdsList>(
-    "/humans/persons/in_public_space", latched_qos);
+    "/humans/persons/in_public_space", default_qos);
   diagnostics_pub_ = this->create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
     "/diagnostics", 1);
 
@@ -370,11 +370,9 @@ void NodePersonManager::publishKnownPersons()
     known.push_back(kv.first);
   }
 
-  if (known != previously_known_) {
-    persons_list.header.stamp = this->get_clock()->now();
-    known_persons_pub_->publish(persons_list);
-    previously_known_ = known;
-  }
+  persons_list.header.stamp = this->get_clock()->now();
+  known_persons_pub_->publish(persons_list);
+  previously_known_ = known;
 }
 
 void NodePersonManager::publishPersons()
@@ -523,29 +521,21 @@ void NodePersonManager::publishPersons()
 
   auto stamp = this->get_clock()->now();
 
-  if (actively_tracked != previously_tracked_) {
-    persons_list.header.stamp = stamp;
-    tracked_persons_pub_->publish(persons_list);
-    previously_tracked_ = actively_tracked;
-  }
+  persons_list.header.stamp = stamp;
+  tracked_persons_pub_->publish(persons_list);
+  previously_tracked_ = actively_tracked;
 
-  if (in_personal_space != previously_in_personal_space_) {
-    persons_personal_space_list.header.stamp = stamp;
-    personal_space_pub_->publish(persons_personal_space_list);
-    previously_in_personal_space_ = in_personal_space;
-  }
+  persons_personal_space_list.header.stamp = stamp;
+  personal_space_pub_->publish(persons_personal_space_list);
+  previously_in_personal_space_ = in_personal_space;
 
-  if (in_social_space != previously_in_social_space_) {
-    persons_social_space_list.header.stamp = stamp;
-    social_space_pub_->publish(persons_social_space_list);
-    previously_in_social_space_ = in_social_space;
-  }
+  persons_social_space_list.header.stamp = stamp;
+  social_space_pub_->publish(persons_social_space_list);
+  previously_in_social_space_ = in_social_space;
 
-  if (in_public_space != previously_in_public_space_) {
-    persons_public_space_list.header.stamp = stamp;
-    public_space_pub_->publish(persons_public_space_list);
-    previously_in_public_space_ = in_public_space;
-  }
+  persons_public_space_list.header.stamp = stamp;
+  public_space_pub_->publish(persons_public_space_list);
+  previously_in_public_space_ = in_public_space;
 
   proc_time_ms_ = (
     this->get_clock()->now() - proc_start_time_).to_chrono<std::chrono::milliseconds>();
