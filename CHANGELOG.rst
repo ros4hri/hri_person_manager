@@ -2,6 +2,11 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* configuration handling: port to PAPS-007
+* Contributors: Séverin Lemaignan
+
 2.1.0 (2025-02-24)
 ------------------
 * add rate parameter; increase publish frequency to 30
