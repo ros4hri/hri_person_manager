@@ -52,9 +52,13 @@ ament_auto_add_executable(${PROJECT_NAME}
 
 # Additional install
 install(
-  DIRECTORY launch
+  DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}
 )
+
+# register the default configuration file
+ament_index_register_resource("pal_configuration.hri_person_manager" CONTENT config/00-defaults.yml)
+
 
 # Testing
 if(BUILD_TESTING)
