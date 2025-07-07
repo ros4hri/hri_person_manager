@@ -1,0 +1,11 @@
+/hri_person_manager/add_analyzer_node:
+  ros__parameters:
+    path: Diagnostics
+    social_perception:
+      type: 'diagnostic_aggregator/AnalyzerGroup'
+      path: "Social perception"
+      analyzers:
+        fusion:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: "Data fusion"
+          find_and_remove_prefix: ["/social_perception/fusion"]
