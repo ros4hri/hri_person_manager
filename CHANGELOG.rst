@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.2.1 (2025-07-09)
+------------------
 * Add diagnostic analyzers
 * Contributors: Noel Jimenez
 
