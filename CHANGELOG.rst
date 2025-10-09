@@ -2,6 +2,11 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Fix ament_auto warning about headers install destination
+* Contributors: Noel Jimenez
+
 2.2.1 (2025-07-09)
 ------------------
 * Add diagnostic analyzers
