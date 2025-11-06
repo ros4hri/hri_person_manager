@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.2.3 (2025-11-06)
+------------------
 * Make pal_module_cmake optional for ROS builds
 * Contributors: Mathias Lüdtke
 
