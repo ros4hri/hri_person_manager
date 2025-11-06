@@ -2,6 +2,11 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Make pal_module_cmake optional for ROS builds
+* Contributors: Mathias Lüdtke
+
 2.2.2 (2025-10-09)
 ------------------
 * Fix ament_auto warning about headers install destination
