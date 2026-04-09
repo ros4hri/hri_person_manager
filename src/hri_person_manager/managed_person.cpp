@@ -147,7 +147,7 @@ void ManagedPerson::setVoiceId(hri::ID id)
 void ManagedPerson::setAnonymous(bool anonymous)
 {
   if (anonymous && anonymous_ != anonymous) {
-    RCLCPP_WARN_STREAM(
+    RCLCPP_INFO_STREAM(
       node_interfaces_.get_node_logging_interface()->get_logger(),
       "new anonymous person " << kId_);
   }
