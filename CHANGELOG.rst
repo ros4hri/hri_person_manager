@@ -2,8 +2,8 @@
 Changelog for package hri_person_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.2.4 (2026-04-09)
+------------------
 * [minor] adjust log level
 * Contributors: Séverin Lemaignan
 
